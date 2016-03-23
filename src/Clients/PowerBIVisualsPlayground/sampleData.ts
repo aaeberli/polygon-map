@@ -38,6 +38,7 @@ module powerbi.visuals.sampleData {
             new sampleDataViews.ProfitLossData(),
             new sampleDataViews.RichtextData(),
             new sampleDataViews.SalesByCountryData(),
+            new sampleDataViews.SalesByXYData(),
             new sampleDataViews.SalesByDayOfWeekData(),
             new sampleDataViews.ServicesByUsers(),
             new sampleDataViews.SimpleAreaRangeData(),

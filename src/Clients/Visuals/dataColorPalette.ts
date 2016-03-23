@@ -30,7 +30,17 @@ module powerbi.visuals {
     export class DataColorPalette implements IDataColorPalette {
         private scales: { [index: string]: IColorScale };
         private colors: IColorInfo[];
-        private sentimentColors: IColorInfo[];
+
+        /**
+         * Colors used for sentiment visuals, e.g. KPI, Gauge. Since this is only a temporary implementation which will
+         * eventually be superseded by conditional formatting, we don't declare them as part of the theme and instead
+         * use a hardcoded color scheme here until conditional formatting is ready.
+         */
+        private sentimentColors: IColorInfo[] = [
+            { value: '#C0433A' }, // Red
+            { value: '#E8D62E' }, // Yellow
+            { value: '#79C75B' }, // Green
+        ];
 
         // Hardcoded values for Color Picker.
         private basePickerColors: IColorInfo[] = [
@@ -49,10 +59,9 @@ module powerbi.visuals {
         /**
          * Creates a DataColorPalette using the given theme, or the default theme.
          */
-        constructor(colors?: IColorInfo[], sentimentcolors?: IColorInfo[]) {
+        constructor(colors?: IColorInfo[]) {
             // TODO: Default theme is currently hardcoded. Theme should eventually come from PV and be added as a parameter in the ctor. 
             this.colors = colors || ThemeManager.getDefaultTheme();
-            this.sentimentColors = sentimentcolors || ThemeManager.defaultSentimentColors;
             this.scales = {};
         }
 
@@ -179,12 +188,6 @@ module powerbi.visuals {
         ];
 
         private static defaultTheme: IColorInfo[];
-        
-        public static defaultSentimentColors: IColorInfo[] = [
-            { value: '#C0433A' }, // Red
-            { value: '#E8D62E' }, // Yellow
-            { value: '#79C75B' }, // Green
-        ];
 
         public static getDefaultTheme(): IColorInfo[] {
             if (!ThemeManager.defaultTheme) {

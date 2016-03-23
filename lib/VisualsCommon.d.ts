@@ -35,7 +35,6 @@ declare module jsCommon {
         const DocumentBody: string;
         const Anchor: string;
         const EditableTextElements: string;
-        const EditableNumericElements: string;
         /**
          * DOM Attributes and values.
          */
@@ -253,14 +252,9 @@ declare module powerbi {
         code: string;
         columnNameFromIndex: (index: number) => string;
     }
-    /**
-     this base class should be derived to give a generic error message but with a unique error code.
-     */
-    abstract class UnknownClientError implements IClientError {
-        private errorCode;
+    class UnknownClientError implements IClientError {
         code: string;
         ignorable: boolean;
-        constructor(code: string);
         getDetails(resourceProvider: IStringResourceProvider): ErrorDetails;
     }
     class HttpClientError implements IClientError {
@@ -1390,17 +1384,6 @@ declare module jsCommon {
         function isValidUrl(value: string): boolean;
         function isValidImageUrl(url: string): boolean;
         function findAllValidUrls(text: string): TextMatch[];
-    }
-}
-declare module jsCommon {
-    module BrowserUtils {
-        function isChrome(): boolean;
-        function isInternetExplorerOrEdge(): boolean;
-        /**
-         * Get the current version of IE
-         * @returns The version of Internet Explorer or a 0 (indicating the use of another browser).
-         */
-        function getInternetExplorerVersion(): number;
     }
 }
 declare module jsCommon {

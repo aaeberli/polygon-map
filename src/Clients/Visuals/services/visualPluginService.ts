@@ -78,11 +78,6 @@ module powerbi.visuals {
         filledMapDataLabelsEnabled?: boolean;
                 
         lineChartLabelDensityEnabled?: boolean;
-        
-        /**
-         * Enables button to center map to the current location
-         */
-        mapCurrentLocationEnabled?: boolean;
     }
 
     export interface SmallViewPortProperties {
@@ -489,7 +484,7 @@ module powerbi.visuals {
                 isScrollable: true,
                 behavior: new TreemapWebBehavior(),
                 tooltipsEnabled: true,
-            }));            
+            }));           
             // Waterfall Chart
             createPlugin(plugins, powerbi.visuals.plugins.waterfallChart, () => new CartesianChart({
                 chartType: CartesianChartType.Waterfall,
@@ -613,6 +608,7 @@ module powerbi.visuals {
                     powerbi.visuals.plugins.pieChart,
                     powerbi.visuals.plugins.treemap,
                     powerbi.visuals.plugins.map,
+                    powerbi.visuals.plugins.polygonMap,
                     powerbi.visuals.plugins.table,
                     powerbi.visuals.plugins.matrix,
                     powerbi.visuals.plugins.filledMap,
@@ -1032,8 +1028,7 @@ module powerbi.visuals {
                     }));
                 createPlugin(this.visualPlugins, powerbi.visuals.plugins.map,
                     () => new Map({
-                        viewChangeThrottleInterval: mapThrottleInterval,
-                        enableCurrentLocation: featureSwitches ? featureSwitches.mapCurrentLocationEnabled : false
+                        viewChangeThrottleInterval: mapThrottleInterval
                     }));
                 createPlugin(this.visualPlugins, powerbi.visuals.plugins.filledMap,
                     () => new Map({

@@ -50,9 +50,6 @@ module powerbi.visuals {
             });
 
             eventGroup.on('contextmenu', () => {
-                if (d3.event.ctrlKey)
-                    return;
-
                 d3.event.preventDefault();
 
                 let d = ColumnChartWebBehavior.getDatumForLastInputEvent();

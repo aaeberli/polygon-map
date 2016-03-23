@@ -30,8 +30,7 @@ module powerbi.visuals {
             general: {
                 properties: {
                     paragraphs: {
-                        type: { paragraphs: {} },
-                        suppressFormatPainterCopy: true,
+                        type: { paragraphs: {} }
                     }
                 }
             }

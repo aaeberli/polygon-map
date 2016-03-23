@@ -140,6 +140,7 @@ function tsc(options) {
             }))
             .pipe(gulp.dest("./obj", gulpOptions));
 
+
         var nonminJsStream = nonminJs ? tscResult.js.pipe(clone())
             .pipe(plumber({ errorHandler: errorCache.catchError }))
             .pipe(changed("./obj", {

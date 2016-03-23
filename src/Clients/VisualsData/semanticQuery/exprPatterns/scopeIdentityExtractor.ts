@@ -91,10 +91,6 @@ module powerbi.data {
                 this.values.push(expr);
             }
 
-            public visitArithmetic(expr: SQArithmeticExpr): void {
-                this.keys.push(expr);
-            }
-
             public visitDefault(expr: SQExpr): void {
                 this.malformed = true;
             }

@@ -115,18 +115,6 @@ module powerbi.data {
                 };
             }
 
-            public visitArithmetic(expr: SQArithmeticExpr): {} {
-                debug.assertValue(expr, 'expr');
-
-                return {
-                    arithmetic: {
-                        o: expr.operator,
-                        l: expr.left.accept(this),
-                        r: expr.right.accept(this)
-                    }
-                };
-            }
-
             public visitDefault(expr: SQExpr): {} {
                 debug.assertFail('Unexpected expression type found in DataViewScopeIdentity.');
 

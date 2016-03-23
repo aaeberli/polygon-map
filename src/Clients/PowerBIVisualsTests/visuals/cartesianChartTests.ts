@@ -190,42 +190,20 @@ module powerbitests {
                 })).toBe(false);
             });
         });
-
-        it('getAdditionalTelemetry', () => {
-            let dataView = buildSimpleDataView(true);
-            dataView.metadata.objects = {
-                categoryAxis: {
-                    axisType: powerbi.visuals.axisType.scalar
-                }
-            };
-
-            let telemetry = CartesianChart.getAdditionalTelemetry(dataView);
-            expect(telemetry).toEqual({ axisType: 'scalar' });
-        });
     });
 
-    function buildSimpleDataView(scalar: boolean = false): DataView {
-        let categories: any[];
-        let categoryColumn: powerbi.DataViewMetadataColumn;
-        if (scalar) {
-            categories = [100, 200];
-            categoryColumn = sampleData.scalarCategoryColumn;
-        }
-        else {
-            categories = ['abc', 'def'];
-            categoryColumn = sampleData.categoryColumn;
-        }
-
+    function buildSimpleDataView(): DataView {
+        let categories = ['abc', 'def'];
         let categoryIdentities = _.map(categories, (c) => mocks.dataViewScopeIdentity(c));
         let values = [1, 2];
 
         return <DataView> {
             metadata: {
-                columns: [categoryColumn, sampleData.valueColumn]
+                columns: [sampleData.categoryColumn, sampleData.valueColumn]
             },
             categorical: {
                 categories: [{
-                    source: categoryColumn,
+                    source: sampleData.categoryColumn,
                     values: categories,
                     identity: categoryIdentities,
                 }],
@@ -293,13 +271,6 @@ module powerbitests {
             displayName: 'categories',
             queryName: 'categories',
             type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text),
-            roles: { ['Category']: true },
-        };
-
-        export let scalarCategoryColumn: powerbi.DataViewMetadataColumn = {
-            displayName: 'scalar categories',
-            queryName: 'categories',
-            type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Integer),
             roles: { ['Category']: true },
         };
 

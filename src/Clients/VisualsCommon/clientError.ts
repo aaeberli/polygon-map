@@ -43,23 +43,12 @@ module powerbi {
         columnNameFromIndex: (index: number) => string;
     }
 
-    /**
-     this base class should be derived to give a generic error message but with a unique error code.
-     */
-    export abstract class UnknownClientError implements IClientError {
-        private errorCode: string;
-
+    export class UnknownClientError implements IClientError {
         public get code(): string {
-            return this.errorCode;
+            return 'UnknownClientError';
         }
         public get ignorable(): boolean {
             return false;
-        }
-
-        constructor(code: string) {
-            debug.assertValue(code, 'code');
-
-            this.errorCode = code;
         }
 
         public getDetails(resourceProvider: IStringResourceProvider): ErrorDetails {

@@ -42,9 +42,6 @@ module powerbi.visuals {
             });
 
             bars.on('contextmenu', (d: WaterfallChartDataPoint) => {
-                if (d3.event.ctrlKey)
-                    return;
-
                 d3.event.preventDefault();
 
                 if (!d.isTotal) {

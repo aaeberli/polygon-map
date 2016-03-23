@@ -45,9 +45,6 @@ declare module powerbi {
         */
         customizeQuery?: CustomizeQueryMethod;
 
-        /** Funation to allow the visual to provide additional information for telemetry. */
-        getAdditionalTelemetry?: GetAdditionalTelemetryMethod;
-
         /** The class of the plugin.  At the moment it is only used to have a way to indicate the class name that a custom visual has. */
         class?: string;
 
@@ -62,11 +59,6 @@ declare module powerbi {
         
         /** The version of the api that this plugin should be run against */
         apiVersion?: string;
-    }
-
-    /** Method for gathering addition information from the visual for telemetry. */
-    export interface GetAdditionalTelemetryMethod {
-        (dataView: DataView): any;
     }
 
     /** Factory method for an IVisual.  This factory method should be registered on the powerbi.visuals object. */

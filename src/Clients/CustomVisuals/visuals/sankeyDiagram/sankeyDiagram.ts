@@ -54,15 +54,13 @@ module powerbi.visuals.samples {
 
     export interface SankeyDiagramSettings {
         scale?: SankeyDiagramScale;
-        fontSize: number;
         isVisibleLabels?: boolean;
         colourOfLabels: string;
     }
 
     export interface SankeyDiagramNode extends SankeyDiagramTooltipData {
         label: SankeyDiagramLabel;
-        inputWeight: number;
-        outputWeight: number;
+        weigth: number;
         links: SankeyDiagramLink[];
         x?: number;
         y?: number;
@@ -112,6 +110,31 @@ module powerbi.visuals.samples {
     export class SankeyDiagram implements IVisual {
         private static ClassName: string = "sankeyDiagram";
 
+        private static Properties: SankeyDiagramProperties = {
+            general: {
+                formatString: {
+                    objectName: "general",
+                    propertyName: "formatString"
+                }
+            },
+            labels: {
+                show: {
+                    objectName: "labels",
+                    propertyName: "show"
+                },
+                fill: {
+                    objectName: "labels",
+                    propertyName: "fill"
+                }
+            },
+            links: {
+                fill: {
+                    objectName: "links",
+                    propertyName: "fill"
+                }
+            }
+        };
+
         private static Nodes: ClassAndSelector = {
             "class": "nodes",
             selector: ".nodes"
@@ -148,8 +171,7 @@ module powerbi.visuals.samples {
         private static DefaultSettings: SankeyDiagramSettings = {
             isVisibleLabels: true,
             scale: { x: 1, y: 1 },
-            colourOfLabels: "black",
-            fontSize: 12
+            colourOfLabels: "black"
         };
 
         private static MinWidthOfLabel: number = 35;
@@ -215,10 +237,6 @@ module powerbi.visuals.samples {
                         fill: {
                             displayName: data.createDisplayNameGetter('Visual_Fill'),
                             type: { fill: { solid: { color: true } } }
-                        },
-                        fontSize: {
-                            displayName: data.createDisplayNameGetter('Visual_TextSize'),
-                            type: { formatting: { fontSize: true } }
                         }
                     }
                 },
@@ -233,22 +251,6 @@ module powerbi.visuals.samples {
                 }
             }
         };
-
-        private static Properties: SankeyDiagramProperties = SankeyDiagram.getProperties(SankeyDiagram.capabilities);
-        public static getProperties(capabilities: VisualCapabilities): any {
-            var result = {};
-            for(var objectKey in capabilities.objects) {
-                result[objectKey] = {};
-                for(var propKey in capabilities.objects[objectKey].properties) {
-                    result[objectKey][propKey] = <DataViewObjectPropertyIdentifier> { 
-                        objectName: objectKey,
-                        propertyName: propKey
-                    };
-                }
-            }
-
-            return result;
-        }
 
         private margin: IMargin = {
             top: 10,
@@ -270,12 +272,7 @@ module powerbi.visuals.samples {
 
         private viewport: IViewport;
 
-        private get textProperties(): TextProperties{
-            return {
-                fontFamily: this.root.style("font-family"),
-                fontSize: jsCommon.PixelConverter.fromPoint(this.dataView ? this.dataView.settings.fontSize : SankeyDiagram.DefaultSettings.fontSize)
-            };
-        }
+        private textProperties: TextProperties;
 
         private dataView: SankeyDiagramDataView;
 
@@ -316,6 +313,11 @@ module powerbi.visuals.samples {
             this.nodes = this.main
                 .append("g")
                 .classed(SankeyDiagram.Nodes["class"], true);
+
+            this.textProperties = {
+                fontFamily: this.root.style("font-family"),
+                fontSize: this.root.style("font-size")
+            };
         }
 
         public update(visualUpdateOptions: VisualUpdateOptions): void {
@@ -381,8 +383,7 @@ module powerbi.visuals.samples {
                     links: [],
                     settings: {
                         scale: { x: 1, y: 1 },
-                        colourOfLabels: SankeyDiagram.DefaultSettings.colourOfLabels,
-                        fontSize: SankeyDiagram.DefaultSettings.fontSize
+                        colourOfLabels: SankeyDiagram.DefaultSettings.colourOfLabels
                     }
                 };
             }
@@ -489,8 +490,7 @@ module powerbi.visuals.samples {
                     nodes.push({
                         label: label,
                         links: [],
-                        inputWeight: 0,
-                        outputWeight: 0,
+                        weigth: 0,
                         width: this.nodeWidth,
                         height: 0,
                         colour: SankeyDiagram.DefaultColourOfNode,
@@ -556,12 +556,12 @@ module powerbi.visuals.samples {
                 sourceNode.tooltipData = this.getTooltipForNode(
                     valuesFormatterForWeigth,
                     sourceNode.label.formattedName,
-                    sourceNode.inputWeight ? sourceNode.inputWeight : sourceNode.outputWeight);
+                    sourceNode.weigth);
 
                 destinationNode.tooltipData = this.getTooltipForNode(
                     valuesFormatterForWeigth,
                     destinationNode.label.formattedName,
-                    destinationNode.inputWeight ? destinationNode.inputWeight : destinationNode.outputWeight);
+                    destinationNode.weigth);
             });
 
             settings = this.parseSettings(objects);
@@ -621,12 +621,8 @@ module powerbi.visuals.samples {
         }
 
         private updateValueOfNode(node: SankeyDiagramNode): void {
-            node.inputWeight = node.links.reduce((previousValue: number, currentValue: SankeyDiagramLink) => {
-                return previousValue + (currentValue.destination === node ? currentValue.weigth : 0);
-            }, 0);
-
-            node.outputWeight = node.links.reduce((previousValue: number, currentValue: SankeyDiagramLink) => {
-                return previousValue + (currentValue.source === node ? currentValue.weigth : 0);
+            node.weigth = node.links.reduce((previousValue: number, currentValue: SankeyDiagramLink) => {
+                return previousValue + currentValue.weigth;
             }, 0);
         }
 
@@ -666,10 +662,7 @@ module powerbi.visuals.samples {
                     x: SankeyDiagram.DefaultSettings.scale.x,
                     y: SankeyDiagram.DefaultSettings.scale.y
                 },
-                colourOfLabels: SankeyDiagram.DefaultSettings.colourOfLabels,
-                fontSize: DataViewObjects.getValue<number>(objects, 
-                    SankeyDiagram.Properties["labels"]["fontSize"],
-                    SankeyDiagram.DefaultSettings.fontSize)
+                colourOfLabels: SankeyDiagram.DefaultSettings.colourOfLabels
             };
         }
 
@@ -755,13 +748,26 @@ module powerbi.visuals.samples {
             });
 
             nodes.forEach((node: SankeyDiagramNode) => {
+                var sumWeightOfLeftNodes: number = 0,
+                    sumWeightOfRightNodes: number = 0;
+
+                node.links.forEach((link: SankeyDiagramLink) => {
+                    if (link.destination.x > node.x || link.source.x > node.x) {
+                        sumWeightOfRightNodes += link.weigth;
+                    } else if (link.destination.x < node.x || link.source.x < node.x) {
+                        sumWeightOfLeftNodes += link.weigth;
+                    }
+                });
+
+                node.weigth = Math.max(sumWeightOfLeftNodes, sumWeightOfRightNodes);
+
                 if (currentX !== node.x) {
                     index = 0;
                     currentX = node.x;
                     sumValueOfNodes = 0;
                 }
 
-                sumValueOfNodes += Math.max(node.inputWeight, node.outputWeight);
+                sumValueOfNodes += node.weigth;
 
                 if (sumValueOfNodes > maxValueOfNodes) {
                     maxValueOfNodes = sumValueOfNodes;
@@ -799,7 +805,7 @@ module powerbi.visuals.samples {
                     index = 0;
                 }
 
-                node.height = Math.max(node.inputWeight, node.outputWeight) * scale;
+                node.height = node.weigth * scale;
 
                 node.y = shiftByAxisY + SankeyDiagram.NodePadding * index;
 
@@ -911,7 +917,6 @@ module powerbi.visuals.samples {
                     dy: "0.35em"
                 })
                 .style("fill", (node: SankeyDiagramNode) => node.label.colour)
-                .style("font-size", this.textProperties.fontSize)
                 .style("display", (node: SankeyDiagramNode) => {
                     var isNotVisibleLabel: boolean = false, 
                         labelPositionByAxisX: number = this.getCurrentPositionOfLabelByAxisX(node);
@@ -1151,8 +1156,7 @@ module powerbi.visuals.samples {
                 selector: null,
                 properties: {
                     show: settings.isVisibleLabels,
-                    fill: settings.colourOfLabels,
-                    fontSize: settings.fontSize
+                    fill: settings.colourOfLabels
                 }
             };
 

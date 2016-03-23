@@ -66,32 +66,44 @@ module powerbitests {
         });
 
         xit("Scroll to last to check if items come in view HTML", (done) => {
+            listViewBuilder.isSpy = true;
             listViewBuilder.buildHtmlListView();
             setTimeout(() => {
                 let lastElem = listViewBuilder.element.find(".item").last().text();
-                // the 8th item in the list when the viewport height is 80 and each item height is 10.
-                expect(lastElem).toEqual("-->Sea-->Hawks");
-                listViewBuilder.scrollElement.scrollTop(15);
+
+                expect(lastElem).not.toEqual("-->Sachin-->Patney");
+                listViewBuilder.scrollElement.scrollTop(1000);
                 setTimeout(() => {
                     let lastElem2 = listViewBuilder.element.find(".item").last().text();
                     expect(lastElem2).toEqual("-->Sachin-->Patney");
-                    expect(listViewBuilder.spyOnLoadMoreData).toHaveBeenCalled();
+                    expect(listViewBuilder.spy).toHaveBeenCalled();
                     done();
                 }, DefaultWaitForRender);
             }, DefaultWaitForRender);
         });
 
         xit("Reset scrollbar position when ResetScrollbar flag is set", (done) => {
+            listViewBuilder.data = [
+                { first: "Mickey", second: "Mouse" },
+                { first: "Mini", second: "Mouse" },
+                { first: "Daffy", second: "Duck" },
+                { first: "Captain", second: "Planet" },
+                { first: "Russell", second: "Wilson" },
+                { first: "Jack", second: "Sparrow" },
+                { first: "James", second: "Bond" },
+                { first: "Sea", second: "Hawks" }
+            ];
+
             listViewBuilder.buildHtmlListView();
             setTimeout(() => {
-                listViewBuilder.scrollElement.scrollTop(14);
+                listViewBuilder.scrollElement.scrollTop(1000);
            
                 setTimeout(() => {
-                    expect(listViewBuilder.scrollElement.scrollTop()).toBe(14);
+                    expect(listViewBuilder.scrollElement.scrollTop()).toBe(40);
 
                     listViewBuilder.render(true, false);
                     setTimeout(() => {
-                        expect(listViewBuilder.scrollElement.scrollTop()).toBe(14);
+                        expect(listViewBuilder.scrollElement.scrollTop()).toBe(40);
                 
                         listViewBuilder.render(true, true);
 
@@ -106,26 +118,30 @@ module powerbitests {
     });
 
     class ListViewBuilder {
+        public isSpy: boolean = false;
         public element: JQuery;
         public scrollElement: JQuery;
         public data: any[];
-        public spyOnLoadMoreData: jasmine.Spy;
 
         private width: number;
         private height: number;
         private options: ListViewOptions;
-        
+        private _spy: jasmine.Spy;
         private _listView: powerbi.visuals.IListView;
+
+        public get spy(): jasmine.Spy {
+            return this._spy;
+        }
 
         public get listView(): powerbi.visuals.IListView {
             return this._listView;
         }
 
-        constructor(width: number = 200, height: number = 75) {
+        constructor(width: number = 200, height: number = 200) {
             this.setSize(width, height);
         }
 
-        private setSize(width: number, height: number) {
+        public setSize(width: number, height: number) {
             this.width = width;
             this.height = height;
 
@@ -140,7 +156,7 @@ module powerbitests {
             let rowEnter = (rowSelection: D3.Selection) => {
                 rowSelection
                     .append("div")
-                    .style("height", "10px")
+                    .style("height", "30px")
                     .classed("item", true)
                     .selectAll("span")
                     .data(d => {
@@ -163,14 +179,13 @@ module powerbitests {
         }
         
         private createOptions(rowEnter, rowUpdate) {
-            if (!this.options)
-                this.options = {
+            this.options = {
                 enter: rowEnter,
                 exit: (rowSelection: D3.Selection) => { rowSelection.remove(); },
                 update: rowUpdate,
-                loadMoreData: () => _.noop,
+                loadMoreData: () => { },
                 baseContainer: d3.select(this.element.get(0)),
-                rowHeight: 10,
+                rowHeight: 30,
                 scrollEnabled: true,
                 viewport: { height: this.height, width: this.width }
             };
@@ -196,20 +211,30 @@ module powerbitests {
             this._listView = ListViewFactory.createListView(this.options);
         }
 
-        private setScrollElement(): void {
-            this.scrollElement = this.element.find('.scrollbar-inner.scroll-content');
+        private setSpy() {
+            if (this.isSpy) {
+                this._spy = spyOn(this.options, "loadMoreData");
+            }
+        }
+
+        public build() {
+            this.setSpy();
+            this.createListView();
+            this.render();
+            this.setScrollElement();
         }
 
         public render(sizeChanged: boolean = true, resetScrollPosition?: boolean) {
             this._listView.data(this.generateNestedData(this.data), d => d.id, resetScrollPosition).render();
         }
 
+        public setScrollElement(): void {
+            this.scrollElement = this.element.find('.scrollbar-inner.scroll-content');
+        }
+
         public buildHtmlListView() {
             this.buildHtmlListViewOptions();
-            this.spyOnLoadMoreData = spyOn(this.options, 'loadMoreData');
-            this.createListView();
-            this.render();
-            this.setScrollElement();
+            this.build();
         }
 
         public destroy() {

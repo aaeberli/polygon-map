@@ -26,6 +26,7 @@
 
 module powerbi.visuals.samples {
     import ArcDescriptor = D3.Layout.ArcDescriptor;
+    import SelectionManager = utility.SelectionManager;
     import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
     import createClassAndSelector = jsCommon.CssConstants.createClassAndSelector;
     import ValueFormatter = powerbi.visuals.valueFormatter;
@@ -35,78 +36,27 @@ module powerbi.visuals.samples {
     const AsterDefaultOuterLineThickness: number = 1;
     const AsterDefaultLabelFill: Fill = { solid: { color: '#333' } };
     const AsterDefaultLegendFontSize: number = 8;
+    const AsterDefaultLegendTitle: string = "";
 
     export interface AsterData {
         dataPoints: AsterDataPoint[];
-        highlightedDataPoints?: AsterDataPoint[];
         legendData: LegendData;
         valueFormatter: IValueFormatter;
-        legendSettings: AsterPlotLegendSettings;
+        legendObjectProps: DataViewObject;
         labelSettings: VisualDataLabelsSettings;
-        showOuterLine: boolean;
-        outerLineThickness: number;
     }
 
-    export interface AsterPlotLegendSettings {
-        show: boolean;
-        position: string;
-        showTitle: boolean;
-        labelColor: string;
-        titleText: string;
-        fontSize: number;
-    }
-
-    export interface AsterDataPoint extends SelectableDataPoint {
+    export interface AsterDataPoint {
         color: string;
         sliceHeight: number;
         sliceWidth: number;
         categoryLabel: string;
-        highlight?: boolean;
+        selector: SelectionId;
         tooltipInfo: TooltipDataItem[];
     }
 
-    export interface AsterPlotBehaviorOptions {
-        selection: D3.Selection;
-        highlightedSelection: D3.Selection;
-        clearCatcher: D3.Selection;
-        interactivityService: IInteractivityService;
-    }
-
-    class AsterPlotWebBehavior implements IInteractiveBehavior {
-        private selection: D3.Selection;
-        private highlightedSelection: D3.Selection;
-        private clearCatcher: D3.Selection;
-        private interactivityService: IInteractivityService;
-
-        public bindEvents(options: AsterPlotBehaviorOptions, selectionHandler: ISelectionHandler) {
-            this.selection = options.selection;
-            this.highlightedSelection = options.highlightedSelection;
-            this.clearCatcher = options.clearCatcher;
-            this.interactivityService = options.interactivityService;
-
-            this.selection.on('click', (d, i: number) => {
-                selectionHandler.handleSelection(d.data, d3.event.ctrlKey);
-            });
-
-            if (this.highlightedSelection)
-                this.highlightedSelection.on('click', (d, i: number) => {
-                    selectionHandler.handleSelection(d.data, d3.event.ctrlKey);
-                });
-
-            this.clearCatcher.on('click', () => {
-                selectionHandler.handleClearSelection();
-            });
-        }
-
-        public renderSelection(hasSelection: boolean) {
-            let hasHighlights = this.interactivityService.hasSelection();
-            this.selection.style("fill-opacity", (d) => {
-                return ColumnUtil.getFillOpacity(d.data.selected, d.data.highlight, !d.data.highlight && hasSelection, !d.data.selected && hasHighlights);
-            });
-        }
-    }
-
-    export class AsterPlotWarning implements IVisualWarning {
+    //more than one implementation of interface which contains "IVisual" in its name currently is not supported in devtools
+    export class AsterPlotWarning/* implements IVisualWarning*/ {
         private message: string;
         constructor(message: string) {
             this.message = message;
@@ -242,20 +192,11 @@ module powerbi.visuals.samples {
                     }
                 }
             },
-            supportsHighlight: true,
         };
 
         private static Properties: any = {
             general: {
                 formatString: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'formatString' },
-            },
-            legend: {
-                show: <DataViewObjectPropertyIdentifier>{ objectName: AsterPlotLegendObjectName, propertyName: 'show' },
-                position: <DataViewObjectPropertyIdentifier>{ objectName: AsterPlotLegendObjectName, propertyName: 'position' },
-                showTitle: <DataViewObjectPropertyIdentifier>{ objectName: AsterPlotLegendObjectName, propertyName: 'showTitle' },
-                titleText: <DataViewObjectPropertyIdentifier>{ objectName: AsterPlotLegendObjectName, propertyName: 'titleText' },
-                labelColor: <DataViewObjectPropertyIdentifier>{ objectName: AsterPlotLegendObjectName, propertyName: 'labelColor' },
-                fontSize: <DataViewObjectPropertyIdentifier>{ objectName: AsterPlotLegendObjectName, propertyName: 'fontSize' },
             },
             label: {
                 fill: <DataViewObjectPropertyIdentifier>{ objectName: 'label', propertyName: 'fill' },
@@ -274,63 +215,43 @@ module powerbi.visuals.samples {
         };
 
         private static AsterSlice: ClassAndSelector = createClassAndSelector('asterSlice');
-        private static AsterHighlightedSlice: ClassAndSelector = createClassAndSelector('asterHighlightedSlice');
         private static OuterLine: ClassAndSelector = createClassAndSelector('outerLine');
         private static labelGraphicsContextClass: ClassAndSelector = createClassAndSelector('labels');
         private static linesGraphicsContextClass: ClassAndSelector = createClassAndSelector('lines');
-        private static CenterLabelClass: ClassAndSelector = createClassAndSelector('centerLabel');
         private static CenterTextFontHeightCoefficient = 0.4;
         private static CenterTextFontWidthCoefficient = 1.9;
-
-        private margin: IMargin = {
-            top: 10,
-            right: 10,
-            bottom: 15,
-            left: 10
-        };
+        private static GetCenterTextProperties(fontSize: number, text?: string): TextProperties {
+            return {
+                fontFamily: 'Segoe UI, wf_segoe-ui_normal, helvetica, arial, sans-serif',
+                fontWeight: 'bold',
+                fontSize: jsCommon.PixelConverter.toString(fontSize),
+                text: text
+            };
+        }
 
         private svg: D3.Selection;
         private mainGroupElement: D3.Selection;
         private centerText: D3.Selection;
-        private clearCatcher: D3.Selection;
         private colors: IDataColorPalette;
+        private selectionManager: SelectionManager;
         private dataView: DataView;
         private hostService: IVisualHostServices;
-        private interactivityService: IInteractivityService;
         private legend: ILegend;
         private data: AsterData;
         private currentViewport: IViewport;
-        private behavior: IInteractiveBehavior;
-        private hasHighlights: boolean;
 
         private getDefaultAsterData(): AsterData {
             return <AsterData>{
                 dataPoints: [],
-                highlightedDataPoints: [],
                 legendData: <LegendData>{
                     dataPoints: [],
                     title: null,
                     fontSize: AsterDefaultLegendFontSize,
                     labelColor: LegendData.DefaultLegendLabelFillColor
                 },
-                legendSettings: {
-                    show: false,
-                    position: 'Top',
-                    showTitle: true,
-                    labelColor: LegendData.DefaultLegendLabelFillColor,
-                    titleText: '',
-                    fontSize: AsterDefaultLegendFontSize,
-                },
+                legendObjectProps: {},
                 valueFormatter: null,
-                labelSettings: {
-                    show: false,
-                    displayUnits: 0,
-                    precision: dataLabelUtils.defaultLabelPrecision,
-                    labelColor: dataLabelUtils.defaultLabelColor,
-                    fontSize: dataLabelUtils.DefaultFontSizeInPt,
-                },
-                showOuterLine: false,
-                outerLineThickness: AsterDefaultOuterLineThickness,
+                labelSettings: dataLabelUtils.getDefaultDonutLabelSettings(),
             };
         }
 
@@ -341,21 +262,12 @@ module powerbi.visuals.samples {
 
             let catDv: DataViewCategorical = dataView.categorical;
             let cat = catDv.categories[0];
-            let catSource = cat.source;
             let catValues = cat.values;
             let values = catDv.values;
 
-            let hasHighlights: boolean = this.hasHighlights = !!(values && values.length > 0 && values[0].highlights);
-
-            if (dataView.metadata || dataView.metadata.objects) {
-                let objects: DataViewObjects = dataView.metadata.objects;
-                asterDataResult.labelSettings = this.getLabelSettings(objects, asterDataResult.labelSettings);
-                this.updateLegendSettings(objects, catSource, asterDataResult.legendSettings);
-                asterDataResult.showOuterLine = DataViewObjects.getValue<boolean>(objects, AsterPlot.Properties.outerLine.show, asterDataResult.showOuterLine);
-                asterDataResult.outerLineThickness = DataViewObjects.getValue<number>(objects, AsterPlot.Properties.outerLine.thickness, AsterDefaultOuterLineThickness);
-            }
-
-            let labelSettings: VisualDataLabelsSettings = asterDataResult.labelSettings;
+            let labelSettings = asterDataResult.labelSettings = this.getLabelSettings(dataView, asterDataResult.labelSettings);
+            asterDataResult.legendObjectProps = this.getLegendSettings(dataView);
+            asterDataResult.legendData.title = cat.source ? cat.source.displayName : AsterDefaultLegendTitle;
             if (!catValues || catValues.length < 1 || !values || values.length < 1)
                 return asterDataResult;
 
@@ -364,11 +276,11 @@ module powerbi.visuals.samples {
             let minValue: number = Math.min(0, d3.min(values[0].values));
 
             let labelFormatter: IValueFormatter = ValueFormatter.create({
-                format: ValueFormatter.getFormatString(catSource, AsterPlot.Properties.general.formatString),
+                format: ValueFormatter.getFormatString(cat.source, AsterPlot.Properties.general.formatString),
                 precision: labelSettings.precision,
                 value: (labelSettings.displayUnits === 0) && (maxValue != null) ? maxValue : labelSettings.displayUnits,
             });
-            let categorySourceFormatString = valueFormatter.getFormatString(catSource, formatStringProp);
+            let categorySourceFormatString = valueFormatter.getFormatString(cat.source, formatStringProp);
 
             for (let i = 0, length = Math.min(colors.getAllColors().length, catValues.length); i < length; i++) {
                 let formattedCategoryValue = valueFormatter.format(catValues[i], categorySourceFormatString);
@@ -384,7 +296,7 @@ module powerbi.visuals.samples {
                     0);
 
                 if (values.length > 1) {
-                    let toolTip: TooltipDataItem = TooltipBuilder.createTooltipInfo(
+                    let toolTip = TooltipBuilder.createTooltipInfo(
                         formatStringProp,
                         catDv,
                         formattedCategoryValue,
@@ -392,121 +304,93 @@ module powerbi.visuals.samples {
                         null,
                         null,
                         1)[1];
-                    if (toolTip)
+                    if (toolTip) {
                         tooltipInfo.push(toolTip);
-
+                    }
                     currentValue += values[1].values[i];
                 }
 
-                let color: string = colors.getColorByIndex(i).value;
-                let selector: SelectionId = SelectionId.createWithId(cat.identity[i]);
-                let sliceWidth: number = Math.max(0, values.length > 1 ? values[1].values[i] : 1);
-
                 asterDataResult.dataPoints.push({
                     sliceHeight: values[0].values[i] - minValue,
-                    sliceWidth: sliceWidth,
+                    sliceWidth: Math.max(0, values.length > 1 ? values[1].values[i] : 1),
                     categoryLabel: catValues[i],
-                    color: color,
-                    identity: selector,
-                    selected: false,
+                    color: colors.getColorByIndex(i).value,
+                    selector: SelectionId.createWithId(cat.identity[i]),
                     tooltipInfo: tooltipInfo,
                     labelFontSize: labelSettings.fontSize,
                     value: labelFormatter.format(currentValue),
-                    highlight: false,
                 });
-                
-                // Handle legend data
-                if (asterDataResult.legendSettings.show)
-                    asterDataResult.legendData.dataPoints.push({
-                        label: catValues[i],
-                        color: color,
-                        icon: LegendIcon.Box,
-                        selected: false,
-                        identity: selector
-                    });
-                
-                // Handle highlights
-                if (hasHighlights) {
-                    let highlightIdentity: SelectionId = SelectionId.createWithHighlight(selector);
-                    let notNull: boolean = values[0].highlights[i] != null;
-                    currentValue = notNull ? values[0].highlights[i] : 0;
-
-                    tooltipInfo = TooltipBuilder.createTooltipInfo(
-                        formatStringProp,
-                        catDv,
-                        formattedCategoryValue,
-                        currentValue,
-                        null,
-                        null,
-                        0);
-
-                    if (values.length > 1) {
-                        let toolTip: TooltipDataItem = TooltipBuilder.createTooltipInfo(
-                            formatStringProp,
-                            catDv,
-                            formattedCategoryValue,
-                            values[1].highlights[i],
-                            null,
-                            null,
-                            1)[1];
-                        if (toolTip)
-                            tooltipInfo.push(toolTip);
-
-                        currentValue += values[1].highlights[i] !== null ? values[1].highlights[i] : 0;
-                    }
-                    asterDataResult.highlightedDataPoints.push({
-                        sliceHeight: notNull ? values[0].highlights[i] - minValue : null,
-                        sliceWidth: Math.max(0, (values.length > 1 && values[1].highlights[i] !== null) ? values[1].highlights[i] : sliceWidth),
-                        categoryLabel: catValues[i],
-                        color: color,
-                        identity: highlightIdentity,
-                        selected: false,
-                        tooltipInfo: tooltipInfo,
-                        labelFontSize: labelSettings.fontSize,
-                        value: labelFormatter.format(currentValue),
-                        highlight: true,
-                    });
-                }
             }
 
+            asterDataResult.legendData = this.getLegendData(dataView, asterDataResult.dataPoints);
             return asterDataResult;
+        }
+
+        private getLegendData(dataView: DataView, asterDataPoints: AsterDataPoint[]): LegendData {
+            let legendData: LegendData = {
+                fontSize: AsterDefaultLegendFontSize,
+                dataPoints: []
+            };
+
+            if (!this.dataViewContainsCategory(dataView))
+                return legendData;
+
+            let categoryDV: DataViewCategoryColumn = dataView.categorical.categories[0];
+            legendData.title = categoryDV.source ? categoryDV.source.displayName : "";
+
+            for (let i = 0; i < asterDataPoints.length; i++) {
+                let dataPoint = asterDataPoints[i];
+                legendData.dataPoints.push({
+                    label: dataPoint.categoryLabel,
+                    color: dataPoint.color,
+                    icon: LegendIcon.Box,
+                    selected: false,
+                    identity: dataPoint.selector
+                });
+            }
+
+            return legendData;
         }
 
         private dataViewContainsCategory(dataView: DataView) {
             return dataView &&
                 dataView.categorical &&
-                dataView.categorical.values &&
                 dataView.categorical.categories &&
                 dataView.categorical.categories[0];
         }
 
-        private getLabelSettings(objects: DataViewObjects, labelSettings: VisualDataLabelsSettings): VisualDataLabelsSettings {
+        private getLabelSettings(dataView: DataView, labelSettings: VisualDataLabelsSettings): VisualDataLabelsSettings {
+            let objects: DataViewObjects = null;
+
+            if (!dataView.metadata || !dataView.metadata.objects)
+                return labelSettings;
+
+            objects = dataView.metadata.objects;
             let asterPlotLabelsProperties = AsterPlot.Properties;
 
-            labelSettings.show = DataViewObjects.getValue<boolean>(objects, asterPlotLabelsProperties.labels.show, labelSettings.show);
-            labelSettings.precision = DataViewObjects.getValue<number>(objects, asterPlotLabelsProperties.labels.labelPrecision, labelSettings.precision);
-            labelSettings.fontSize = DataViewObjects.getValue<number>(objects, asterPlotLabelsProperties.labels.fontSize, labelSettings.fontSize);
-            labelSettings.displayUnits = DataViewObjects.getValue<number>(objects, asterPlotLabelsProperties.labels.labelDisplayUnits, labelSettings.displayUnits);
+            labelSettings.show = DataViewObjects.getValue(objects, asterPlotLabelsProperties.labels.show, labelSettings.show);
+            labelSettings.precision = DataViewObjects.getValue(objects, asterPlotLabelsProperties.labels.labelPrecision, labelSettings.precision);
+            labelSettings.fontSize = DataViewObjects.getValue(objects, asterPlotLabelsProperties.labels.fontSize, labelSettings.fontSize);
+            labelSettings.displayUnits = DataViewObjects.getValue(objects, asterPlotLabelsProperties.labels.labelDisplayUnits, labelSettings.displayUnits);
             let colorHelper: ColorHelper = new ColorHelper(this.colors, asterPlotLabelsProperties.labels.color, labelSettings.labelColor);
             labelSettings.labelColor = colorHelper.getColorForMeasure(objects, "");
 
             return labelSettings;
         }
 
-        private updateLegendSettings(objects: DataViewObjects, catSource: DataViewMetadataColumn, legendSettings: AsterPlotLegendSettings): void {
-            let legendProperties = AsterPlot.Properties.legend;
+        private getLegendSettings(dataView: DataView): DataViewObject {
+            let objects: DataViewObjects = null;
 
-            legendSettings.show = DataViewObjects.getValue<boolean>(objects, legendProperties.show, legendSettings.show);
-            legendSettings.position = DataViewObjects.getValue<string>(objects, legendProperties.position, legendSettings.position);
-            legendSettings.showTitle = DataViewObjects.getValue<boolean>(objects, legendProperties.showTitle, legendSettings.showTitle);
-            let titleText = DataViewObjects.getValue<string>(objects, legendProperties.titleText, '');
-            legendSettings.titleText = _.isEmpty(titleText) && catSource ? catSource.displayName : titleText;
-            legendSettings.labelColor = <string>DataViewObjects.getFillColor(objects, legendProperties.labelColor, legendSettings.labelColor);
-            legendSettings.fontSize = DataViewObjects.getValue<number>(objects, legendProperties.fontSize, legendSettings.fontSize);
+            if (!dataView.metadata || !dataView.metadata.objects)
+                return {};
+
+            objects = dataView.metadata.objects;
+            return <DataViewObject>objects[AsterPlotLegendObjectName];
         }
 
         public init(options: VisualInitOptions): void {
             this.hostService = options.host;
+            this.selectionManager = new SelectionManager({ hostServices: options.host });
             let element: JQuery = options.element;
             let svg: D3.Selection = this.svg = d3.select(element.get(0))
                 .append('svg')
@@ -515,11 +399,9 @@ module powerbi.visuals.samples {
 
             this.colors = options.style.colorPalette.dataColors;
             this.mainGroupElement = svg.append('g');
-            this.behavior = new AsterPlotWebBehavior();
-            this.clearCatcher = appendClearCatcher(this.mainGroupElement);
-            let interactivity = options.interactivity;
-            this.interactivityService = createInteractivityService(this.hostService);
-            this.legend = createLegend(element, interactivity && interactivity.isInteractiveLegend, this.interactivityService, true);
+            this.centerText = this.mainGroupElement.append('text');
+
+            this.legend = createLegend(element, false, null, true);
         }
 
         public update(options: VisualUpdateOptions) {
@@ -535,16 +417,10 @@ module powerbi.visuals.samples {
             let dataView: DataView = this.dataView = options.dataViews[0];
             let convertedData: AsterData = this.data = this.converter(dataView, this.colors);
 
-            if (!convertedData || !convertedData.dataPoints || convertedData.dataPoints.length === 0) {
+            if (!convertedData || !convertedData.dataPoints) {
                 this.clearData();
                 return;
             }
-
-            if (this.interactivityService) {
-                this.interactivityService.applySelectionStateToData(convertedData.dataPoints);
-                this.interactivityService.applySelectionStateToData(convertedData.highlightedDataPoints);
-            }
-
             this.renderLegend(convertedData);
             this.updateViewPortAccordingToLegend();
 
@@ -552,80 +428,56 @@ module powerbi.visuals.samples {
                 .attr({
                     height: Math.max(0, this.currentViewport.height),
                     width: Math.max(0, this.currentViewport.width)
-                });
+                })
+                .on('click', () => this.selectionManager.clear().then(() => selection.style('opacity', 1)));
 
-            let margin: IMargin = this.margin;
-            let transformX: number = (this.currentViewport.width - margin.left) / 2;
-            let transformY: number = (this.currentViewport.height - margin.top) / 2;
-            this.mainGroupElement.attr('transform', SVGUtil.translate(transformX, transformY));
-            
-            // Move back the clearCatcher
-            this.clearCatcher.attr('transform', SVGUtil.translate(-transformX, -transformY));
-            
-            // Clear previous data
-            this.mainGroupElement.selectAll(AsterPlot.AsterSlice.selector).remove();
-            this.mainGroupElement.selectAll(AsterPlot.AsterHighlightedSlice.selector).remove();
+            let width = this.currentViewport.width - 20;
+            let height = this.currentViewport.height - 20;
+            let radius = Math.min(width, height) / 2;
+            let innerRadius = 0.3 * radius;
+            let mainGroup = this.mainGroupElement;
+
+            mainGroup.attr('transform', SVGUtil.translate((width + 20) / 2, (height + 20) / 2));
 
             let dataPoints = this.validateData(dataView, convertedData.dataPoints);
-            if (!dataPoints || dataPoints.length === 0)
+            if (!dataPoints)
                 return;
 
-            let selection: D3.UpdateSelection = this.renderArcsAndLabels(dataPoints, duration, convertedData.labelSettings);
-            let highlightedSelection: D3.UpdateSelection;
+            let maxScore = d3.max(dataPoints, d => d.sliceHeight);
+            let totalWeight = d3.sum(dataPoints, d => d.sliceWidth);
 
-            if (this.hasHighlights)
-                highlightedSelection = this.renderArcsAndLabels(convertedData.highlightedDataPoints, duration, convertedData.labelSettings, true);
-
-            let interactivityService = this.interactivityService;
-
-            if (interactivityService) {
-                let behaviorOptions: AsterPlotBehaviorOptions = {
-                    selection: selection,
-                    highlightedSelection: highlightedSelection,
-                    clearCatcher: this.clearCatcher,
-                    interactivityService: this.interactivityService,
-                };
-                interactivityService.bind(convertedData.dataPoints.concat(convertedData.highlightedDataPoints), this.behavior, behaviorOptions);
-            }
-        }
-
-        private renderArcsAndLabels(dataPoints: AsterDataPoint[], duration: number, labelSettings: VisualDataLabelsSettings, isHighlight: boolean = false): D3.UpdateSelection {
-            let margin: IMargin = this.margin;
-            let width: number = this.currentViewport.width - margin.left - margin.right;
-            let height: number = this.currentViewport.height - margin.top - margin.bottom;
-            let radius: number = Math.min(width, height) / 2;
-            let innerRadius: number = 0.3 * radius;
-            let maxScore: number = d3.max(dataPoints, d => d.sliceHeight);
-            let totalWeight: number = d3.sum(dataPoints, d => d.sliceWidth);
-            let hasSelection: boolean = this.interactivityService && this.interactivityService.hasSelection();
-            let hasHighlights: boolean = this.hasHighlights;
-
-            let pie: D3.Layout.PieLayout = d3.layout.pie()
+            let pie = d3.layout.pie()
                 .sort(null)
                 .value(d => (d && !isNaN(d.sliceWidth) ? d.sliceWidth : 0) / totalWeight);
 
-            let arc: D3.Svg.Arc = d3.svg.arc()
+            let arc = d3.svg.arc()
                 .innerRadius(innerRadius)
-                .outerRadius(d => {
-                    let height: number = (radius - innerRadius) * (d && d.data && !isNaN(d.data.sliceHeight) ? d.data.sliceHeight : 1) / maxScore + innerRadius + 1;
-                    // Prevent from data to be inside the inner radius
-                    return Math.max(height, innerRadius);
-                });
+                .outerRadius(d => (radius - innerRadius) * (d && d.data && !isNaN(d.data.sliceHeight) ? d.data.sliceHeight : 1) / maxScore + innerRadius + 1);
 
+            let selectionManager = this.selectionManager;
             let arcDescriptorDataPoints: ArcDescriptor[] = pie(dataPoints);
-            let classSelector: ClassAndSelector = isHighlight ? AsterPlot.AsterHighlightedSlice : AsterPlot.AsterSlice;
 
-            let selection = this.mainGroupElement.selectAll(classSelector.selector)
-                .data(arcDescriptorDataPoints, (d, idx) => d.data ? d.data.identity.getKey() : idx);
+            let selection = mainGroup.selectAll(AsterPlot.AsterSlice.selector)
+                .data(arcDescriptorDataPoints, (d, idx) => dataPoints[idx] ? dataPoints[idx].selector.getKey() : idx);
 
             selection.enter()
                 .append('path')
                 .attr('stroke', '#333')
-                .classed(classSelector.class, true);
+                .classed(AsterPlot.AsterSlice.class, true);
 
             selection
+                .on('click', function (d) {
+                    selectionManager.select(d.data.selector).then((ids) => {
+                        if (ids.length > 0) {
+                            selection.style('opacity', 0.5);
+                            d3.select(this).style('opacity', 1);
+                        } else {
+                            selection.style('opacity', 1);
+                        }
+                    });
+                    d3.event.stopPropagation();
+                })
                 .attr('fill', d => d.data.color)
-                .style("fill-opacity", (d) => ColumnUtil.getFillOpacity(d.data.selected, d.data.highlight, hasSelection, hasHighlights))
                 .transition().duration(duration)
                 .attrTween('d', function (data) {
                     if (!this.oldData) {
@@ -638,14 +490,9 @@ module powerbi.visuals.samples {
                     return (x) => arc(interpolation(x));
                 });
 
-            selection
-                .exit()
-                .remove();
+            selection.exit().remove();
 
-            TooltipManager.addTooltip(selection, (tooltipEvent: TooltipEvent) => tooltipEvent.data.data.tooltipInfo);
-            
-            // Draw data labels only if they are on and there are no highlights or there are highlights and this is the highlighted data labels
-            if (labelSettings.show && (!hasHighlights || (hasHighlights && isHighlight))) {
+            if (convertedData.labelSettings.show) {
                 let labelArc = d3.svg.arc()
                     .innerRadius(d => radius * (d && d.data && !isNaN(d.data.sliceHeight) ? d.data.sliceHeight : 1) / maxScore + innerRadius)
                     .outerRadius(d => radius * (d && d.data && !isNaN(d.data.sliceHeight) ? d.data.sliceHeight : 1) / maxScore + innerRadius);
@@ -654,19 +501,16 @@ module powerbi.visuals.samples {
                     .innerRadius(d => (radius - innerRadius) * (d && d.data && !isNaN(d.data.sliceHeight) ? d.data.sliceHeight : 1) / maxScore + innerRadius)
                     .outerRadius(d => (radius - innerRadius) * (d && d.data && !isNaN(d.data.sliceHeight) ? d.data.sliceHeight : 1) / maxScore + innerRadius);
 
-                let layout = this.getLabelLayout(labelSettings, labelArc, this.currentViewport);
+                let layout = this.getLabelLayout(convertedData.labelSettings, labelArc, this.currentViewport);
                 this.drawLabels(arcDescriptorDataPoints, this.mainGroupElement, layout, this.currentViewport, outlineArc, labelArc);
             }
             else
                 dataLabelUtils.cleanDataLabels(this.mainGroupElement, true);
-            
-            // Draw center text and outline once for original data points
-            if (!isHighlight) {
-                this.drawCenterText(innerRadius);
-                this.drawOuterLine(innerRadius, radius, arcDescriptorDataPoints);
-            }
 
-            return selection;
+            this.drawCenterText(innerRadius);
+            this.drawOuterLine(innerRadius, radius, arcDescriptorDataPoints);
+
+            TooltipManager.addTooltip(selection, (tooltipEvent: TooltipEvent) => tooltipEvent.data.data.tooltipInfo);
         }
 
         private getLabelLayout(labelSettings: VisualDataLabelsSettings, arc: D3.Svg.Arc, viewport: IViewport): ILabelLayout {
@@ -695,7 +539,7 @@ module powerbi.visuals.samples {
                         return pos[1];
                     },
                 },
-                filter: (d: ArcDescriptor) => (d != null && !_.isEmpty(d.data.value)),
+                filter: (d: ArcDescriptor) => (d != null || _.isEmpty(d.data.value)),
                 style: {
                     'fill': labelSettings.labelColor,
                     'font-size': textProperties.fontSize,
@@ -726,7 +570,7 @@ module powerbi.visuals.samples {
 
             let labels = context
                 .select(AsterPlot.labelGraphicsContextClass.selector)
-                .selectAll('.data-labels').data(filteredData, (d: ArcDescriptor) => d.data.identity.getKey());
+                .selectAll('.data-labels').data(filteredData, (d: ArcDescriptor) => d.data.selector.getKey());
 
             labels.enter().append('text').classed('data-labels', true);
 
@@ -747,7 +591,7 @@ module powerbi.visuals.samples {
                 context.append('g').classed(AsterPlot.linesGraphicsContextClass.class, true);
 
             let lines = context.select(AsterPlot.linesGraphicsContextClass.selector).selectAll('polyline')
-                .data(filteredData, (d: ArcDescriptor) => d.data.identity.getKey());
+                .data(filteredData, (d: ArcDescriptor) => d.data.selector.getKey());
 
             let labelLinePadding = 4;
             let chartLinePadding = 1.02;
@@ -784,15 +628,13 @@ module powerbi.visuals.samples {
                 return;
 
             let legendData: LegendData = asterPlotData.legendData;
-            let objects: DataViewObjects = this.dataView && this.dataView.metadata ? this.dataView.metadata.objects : null;
-            let legendObjectProperties: DataViewObject = DataViewObjects.getObject(objects, AsterPlotLegendObjectName, {});
-            if (legendObjectProperties) {
-                let legendSettings = asterPlotData.legendSettings;
-                
-                // Force update for title text
-                legendObjectProperties['titleText'] = legendSettings.titleText;
-                LegendData.update(legendData, legendObjectProperties);
-                this.legend.changeOrientation(LegendPosition[legendSettings.position]);
+            if (asterPlotData.legendObjectProps) {
+                LegendData.update(legendData, asterPlotData.legendObjectProps);
+
+                let position: string = <string>asterPlotData.legendObjectProps[legendProps.position];
+
+                if (position)
+                    this.legend.changeOrientation(LegendPosition[position]);
             }
 
             this.legend.drawLegend(legendData, _.clone(this.currentViewport));
@@ -800,12 +642,12 @@ module powerbi.visuals.samples {
         }
 
         private updateViewPortAccordingToLegend(): void {
-            let legendSettings = this.data.legendSettings;
-            if (!legendSettings || !legendSettings.show)
-                return;
+            let legendMargins: IViewport = this.legend.getMargins(),
+                legendPosition: LegendPosition;
 
-            let legendMargins: IViewport = this.legend.getMargins();
-            let legendPosition: LegendPosition = LegendPosition[legendSettings.position];
+            if (!this.data.legendObjectProps) return;
+
+            legendPosition = LegendPosition[<string>this.data.legendObjectProps[legendProps.position]];
 
             switch (legendPosition) {
                 case LegendPosition.Top:
@@ -841,27 +683,25 @@ module powerbi.visuals.samples {
             return dataPoints;
         }
 
-        private drawOuterLine(innerRadius: number, radius: number, data: ArcDescriptor[]): void {
+        private drawOuterLine(innerRadius: number, radius: number, data): void {
             let mainGroup = this.mainGroupElement;
             let outlineArc = d3.svg.arc()
                 .innerRadius(innerRadius)
                 .outerRadius(radius);
-            if (this.data.showOuterLine) {
-                let OuterThickness: string = this.data.outerLineThickness + 'px';
+            if (this.getShowOuterline(this.dataView)) {
                 let outerLine = mainGroup.selectAll(AsterPlot.OuterLine.selector).data(data);
                 outerLine.enter().append('path');
                 outerLine.attr("fill", "none")
                     .attr({
                         'stroke': '#333',
-                        'stroke-width': OuterThickness,
+                        'stroke-width': this.getOuterThickness(this.dataView) + 'px',
                         'd': outlineArc
                     })
                     .style('opacity', 1)
                     .classed(AsterPlot.OuterLine.class, true);
-                outerLine.exit().remove();
+            } else {
+                mainGroup.selectAll(AsterPlot.OuterLine.selector).style('opacity', 0);
             }
-            else
-                mainGroup.selectAll(AsterPlot.OuterLine.selector).remove();
         }
 
         private getCenterText(dataView: DataView): string {
@@ -873,23 +713,8 @@ module powerbi.visuals.samples {
         }
 
         private drawCenterText(innerRadius: number): void {
-            let text: string = this.getCenterText(this.dataView);
-
-            if (_.isEmpty(text)) {
-                this.mainGroupElement.select(AsterPlot.CenterLabelClass.selector).remove();
-                return;
-            }
-
-            let centerTextProperties: TextProperties = {
-                fontFamily: dataLabelUtils.StandardFontFamily,
-                fontWeight: 'bold',
-                fontSize: jsCommon.PixelConverter.toString(innerRadius * AsterPlot.CenterTextFontHeightCoefficient),
-                text: text
-            };
-
-            if (this.mainGroupElement.select(AsterPlot.CenterLabelClass.selector).empty())
-                this.centerText = this.mainGroupElement.append('text').classed(AsterPlot.CenterLabelClass.class, true);
-
+            let centerTextProperties: TextProperties
+                = AsterPlot.GetCenterTextProperties(innerRadius * AsterPlot.CenterTextFontHeightCoefficient, this.getCenterText(this.dataView));
             this.centerText
                 .style({
                     'line-height': 1,
@@ -901,7 +726,20 @@ module powerbi.visuals.samples {
                     'dy': '0.35em',
                     'text-anchor': 'middle'
                 })
-                .text(TextMeasurementService.getTailoredTextOrDefault(centerTextProperties, innerRadius * AsterPlot.CenterTextFontWidthCoefficient));
+                .text(TextMeasurementService.getTailoredTextOrDefault(
+                    centerTextProperties,
+                    innerRadius * AsterPlot.CenterTextFontWidthCoefficient));
+        }
+
+        private getShowOuterline(dataView: DataView): boolean {
+            return dataView && dataView.metadata && DataViewObjects.getValue(dataView.metadata.objects, AsterPlot.Properties.outerLine.show, false);
+        }
+
+        private getOuterThickness(dataView: DataView): number {
+            if (this.dataViewContainsObjects(dataView))
+                return DataViewObjects.getValue(dataView.metadata.objects, AsterPlot.Properties.outerLine.thickness, AsterDefaultOuterLineThickness);
+
+            return AsterDefaultOuterLineThickness;
         }
 
         // This extracts fill color of the label from the DataView
@@ -916,33 +754,30 @@ module powerbi.visuals.samples {
             return dataView && dataView.metadata && dataView.metadata.objects;
         }
 
-        private enumerateLegend(instances: VisualObjectInstance[]) {
-            let legendSettings: AsterPlotLegendSettings = this.data.legendSettings;
+        private getLegendInstance(): VisualObjectInstance {
+            let legendObjProps: DataViewObject = this.data.legendObjectProps;
             let instance: VisualObjectInstance = {
                 selector: null,
                 objectName: AsterPlotLegendObjectName,
                 displayName: 'Legend',
                 properties: {
-                    show: legendSettings.show,
-                    position: legendSettings.position,
-                    showTitle: legendSettings.showTitle,
-                    titleText: legendSettings.titleText,
-                    labelColor: legendSettings.labelColor,
-                    fontSize: legendSettings.fontSize,
+                    show: DataViewObject.getValue(legendObjProps, legendProps.show, true),
+                    position: DataViewObject.getValue(legendObjProps, legendProps.position, LegendPosition[0]),
+                    showTitle: DataViewObject.getValue(legendObjProps, legendProps.showTitle, true),
+                    titleText: this.data.legendData.title ?
+                        DataViewObject.getValue(legendObjProps, legendProps.titleText, this.data.legendData.title) :
+                        AsterDefaultLegendTitle,
+                    labelColor: DataViewObject.getValue(legendObjProps, legendProps.labelColor, LegendData.DefaultLegendLabelFillColor),
+                    fontSize: DataViewObject.getValue(legendObjProps, legendProps.fontSize, AsterDefaultLegendFontSize)
                 }
             };
 
-            instances.push(instance);
+            return instance;
         }
 
         private clearData(): void {
             this.mainGroupElement.selectAll("path").remove();
             this.legend.drawLegend({ dataPoints: [] }, this.currentViewport);
-        }
-
-        public onClearSelection(): void {
-            if (this.interactivityService)
-                this.interactivityService.clearSelection();
         }
 
         private enumerateLabels(instances: VisualObjectInstance[]): void {
@@ -971,8 +806,10 @@ module powerbi.visuals.samples {
                 return instances;
             switch (options.objectName) {
                 case AsterPlotLegendObjectName:
-                    if (this.data)
-                        this.enumerateLegend(instances);
+                    if (this.data) {
+                        let legend: VisualObjectInstance = this.getLegendInstance();
+                        instances.push(legend);
+                    }
                     break;
                 case 'label':
                     let label: VisualObjectInstance = {
@@ -994,8 +831,8 @@ module powerbi.visuals.samples {
                         displayName: 'Outer Line',
                         selector: null,
                         properties: {
-                            show: this.data.showOuterLine,
-                            thickness: this.data.outerLineThickness,
+                            show: this.getShowOuterline(this.dataView),
+                            thickness: this.getOuterThickness(this.dataView)
                         }
                     };
                     instances.push(outerLine);

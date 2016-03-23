@@ -148,8 +148,7 @@ module powerbi.visuals {
 
             labels.enter()
                 .append("text")
-                .classed(labelsClass.class, true)
-                .style('opacity', 0);
+                .classed(labelsClass.class, true);
 
             let labelAttr = {
                 x: (d: Label) => {
@@ -172,13 +171,9 @@ module powerbi.visuals {
                 .transition()
                 .ease(easeType)
                 .duration(duration)
-                .attr(labelAttr)
-                .style('opacity', 1);
+                .attr(labelAttr);
 
             labels.exit()
-                .transition()
-                .duration(duration)
-                .style('opacity', 0)
                 .remove();
 
             return labels;

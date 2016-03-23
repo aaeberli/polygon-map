@@ -163,28 +163,28 @@ module powerbi.visuals {
                 // Override selection state from data points if needed
                 this.takeSelectionStateFromDataPoints(dataPoints);
             }
-            if (options){
+            if (options) {
                 if (options.isLegend) {
-                // Bind to legend data instead of normal data if isLegend
-                this.selectableLegendDataPoints = dataPoints;
-                this.renderSelectionInLegend = () => behavior.renderSelection(this.legendHasSelection());
-            }
+                    // Bind to legend data instead of normal data if isLegend
+                    this.selectableLegendDataPoints = dataPoints;
+                    this.renderSelectionInLegend = () => behavior.renderSelection(this.legendHasSelection());
+                }
                 else if (options.isLabels) {
                     //Bind to label data instead of normal data if isLabels
                     this.selectableLabelsDataPoints = dataPoints;
                     this.renderSelectionInLabels = () => behavior.renderSelection(this.labelsHasSelection());
                 }
-            else {
-                this.selectableDataPoints = dataPoints;
-                this.renderSelectionInVisual = () => behavior.renderSelection(this.hasSelection());
-            }
+                else {
+                    this.selectableDataPoints = dataPoints;
+                    this.renderSelectionInVisual = () => behavior.renderSelection(this.hasSelection());
+                }
                 if (options.hasSelectionOverride != null) {
-                this.hasSelectionOverride = options.hasSelectionOverride;
-            }
+                    this.hasSelectionOverride = options.hasSelectionOverride;
+                }
                 if (options.slicerDefaultValueHandler) {
-                this.slicerDefaultValueHandler = options.slicerDefaultValueHandler;
+                    this.slicerDefaultValueHandler = options.slicerDefaultValueHandler;
+                }
             }
-            } 
             else {
                 this.selectableDataPoints = dataPoints;
                 this.renderSelectionInVisual = () => behavior.renderSelection(this.hasSelection());
@@ -348,7 +348,7 @@ module powerbi.visuals {
 
             if (wasSelected)
                 this.removeId(id);
-            else              
+            else
                 this.selectedIds.push(id);
 
             this.syncSelectionStateInverted();
@@ -394,13 +394,13 @@ module powerbi.visuals {
 
             if (filter == null) {
                 properties[filterPropertyIdentifier.propertyName] = {};
-                return <VisualObjectInstancesToPersist> {
+                return <VisualObjectInstancesToPersist>{
                     remove: [instance]
                 };
             }
             else {
                 properties[filterPropertyIdentifier.propertyName] = filter;
-                return <VisualObjectInstancesToPersist> {
+                return <VisualObjectInstancesToPersist>{
                     merge: [instance]
                 };
             }

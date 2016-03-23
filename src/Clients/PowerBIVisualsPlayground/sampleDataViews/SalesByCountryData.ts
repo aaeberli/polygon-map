@@ -61,7 +61,8 @@ module powerbi.visuals.sampleDataViews {
                     {
                         displayName: 'Country',
                         queryName: 'Country',
-                        type: powerbi.ValueType.fromDescriptor({ text: true })
+                        type: powerbi.ValueType.fromDescriptor({ text: true }),
+                        roles: { Category: true }
                     },
                     {
                         displayName: 'Sales Amount (2014)',
@@ -69,14 +70,19 @@ module powerbi.visuals.sampleDataViews {
                         format: "$0,000.00",
                         queryName: 'sales1',
                         type: powerbi.ValueType.fromDescriptor({ numeric: true }),
-                        objects: { dataPoint: { fill: { solid: { color: 'purple' } } } },
+                        objects: { dataPoint: { fill: { solid: { color: '#FF0000' } } } },
+                        roles: { Size: true },
+
                     },
                     {
                         displayName: 'Sales Amount (2015)',
+
                         isMeasure: true,
                         format: "$0,000.00",
                         queryName: 'sales2',
-                        type: powerbi.ValueType.fromDescriptor({ numeric: true })
+                        type: powerbi.ValueType.fromDescriptor({ numeric: true }),
+                        objects: { dataPoint: { fill: { solid: { color: '#00FF00' } } } },
+                        roles: { Size: true },
                     }
                 ]
             };
@@ -86,15 +92,17 @@ module powerbi.visuals.sampleDataViews {
                     source: dataViewMetadata.columns[1],
                     // Sales Amount for 2014
                     values: this.sampleData[0],
+                    identity: { key: "sales1", expr: "" },
                 },
                 {
                     source: dataViewMetadata.columns[2],
                     // Sales Amount for 2015
                     values: this.sampleData[1],
+                    identity: { key: "sales2", expr: "" },
                 }
             ];
 
-            var dataValues: DataViewValueColumns = DataViewTransform.createValueColumns(columns);
+            var dataValues: DataViewValueColumns = DataViewTransform.createValueColumns(columns, null, dataViewMetadata.columns[1]);
             var tableDataValues = categoryValues.map(function (countryName, idx) {
                 return [countryName, columns[0].values[idx], columns[1].values[idx]];
             });

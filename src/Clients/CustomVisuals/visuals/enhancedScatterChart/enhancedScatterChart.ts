@@ -78,7 +78,7 @@ module powerbi.visuals.samples {
         yEnd?: number;
     }
 
-    export interface EnhancedScatterChartData extends ScatterBehaviorChartData {
+    export interface EnhancedScatterChartData {
         useShape: boolean;
         useCustomColor: boolean;
         backdrop?: {
@@ -927,7 +927,6 @@ module powerbi.visuals.samples {
                 xCol: scatterMetadata.cols.x,
                 yCol: scatterMetadata.cols.y,
                 dataPoints: dataPoints,
-                dataPointSeries: null,
                 legendData: legendData,
                 axesLabels: scatterMetadata.axesLabels,
                 selectedIds: [],

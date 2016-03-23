@@ -131,20 +131,6 @@ module powerbi.visuals {
                     },
                 },
             },
-            dataPoint: {
-                displayName: data.createDisplayNameGetter('Visual_DataPoint'),
-                properties: {
-                    fill: {
-                        displayName: data.createDisplayNameGetter('Visual_Fill'),
-                        type: { fill: { solid: { color: true } } }
-                    },
-                    target: {
-                        // TODO find a better string
-                        displayName: data.createDisplayNameGetter('Visual_Gauge_Axis_Target'),
-                        type: { fill: { solid: { color: true } } }
-                    }
-                }
-            }
         },
         dataViewMappings: [{
             conditions: [
@@ -164,10 +150,4 @@ module powerbi.visuals {
         supportsSelection: false,
     };
 
-    export const gaugeProps = {
-        dataPoint: {
-            fill: <DataViewObjectPropertyIdentifier>{ objectName: 'dataPoint', propertyName: 'fill' },
-            target: <DataViewObjectPropertyIdentifier>{ objectName: 'dataPoint', propertyName: 'target' }
-        }
-    };
 }

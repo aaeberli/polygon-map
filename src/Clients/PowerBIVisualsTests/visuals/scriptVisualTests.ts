@@ -122,8 +122,25 @@ module powerbitests {
                 expect(imageDiv.css('backgroundImage')).toBe('none');
             });
 
+            it('visual shows last saved image from objects', () => {
+                let visualUpdateOptions = ScriptVisualHelpers.buildUpdateOptions(viewport, {
+                    lastSavedImage: { imageUrl: 'data:image/png;base64,datadatadata' }
+                });
+                scriptVisual.update(visualUpdateOptions);
+
+                //Verifying the DOM
+                let imageDiv = element.find('.imageBackground');
+                let backgroundImage = imageDiv.css('backgroundImage');
+                let isUrlEqual = (backgroundImage === 'url(data:image/png;base64,datadatadata)') || (backgroundImage === 'url("data:image/png;base64,datadatadata")');
+                expect(isUrlEqual).toBeTruthy();
+                expect(imageDiv.css('height')).toBe(viewport.height + 'px');
+                expect(imageDiv.css('width')).toBe(viewport.width + 'px');
+            });
+
             it('visual shows the image from the dataView result', () => {
-                let visualUpdateOptions = ScriptVisualHelpers.buildUpdateOptions(viewport, {}, 'imageimageimage');
+                let visualUpdateOptions = ScriptVisualHelpers.buildUpdateOptions(viewport, {
+                    lastSavedImage: { imageUrl: 'data:image/png;base64,datadatadata' }
+                }, 'imageimageimage');
                 scriptVisual.update(visualUpdateOptions);
 
                 //Verifying the DOM
@@ -144,7 +161,9 @@ module powerbitests {
                 let visualInitOptions = ScriptVisualHelpers.buildInitOptions(element, viewport, hostServices);
                 scriptVisual.init(visualInitOptions);
 
-                let visualUpdateOptions = ScriptVisualHelpers.buildUpdateOptions(viewport, {}, 'imageimageimage');
+                let visualUpdateOptions = ScriptVisualHelpers.buildUpdateOptions(viewport, {
+                    lastSavedImage: { imageUrl: 'data:image/png;base64,datadatadata' }
+                }, 'imageimageimage');
                 scriptVisual.update(visualUpdateOptions);
 
                 expect(warningSpy).toHaveBeenCalled();
@@ -161,7 +180,9 @@ module powerbitests {
                 let visualInitOptions = ScriptVisualHelpers.buildInitOptions(element, viewport, hostServices);
                 scriptVisual.init(visualInitOptions);
 
-                let visualUpdateOptions = ScriptVisualHelpers.buildUpdateOptions(viewport, {}, 'imageimageimage');
+                let visualUpdateOptions = ScriptVisualHelpers.buildUpdateOptions(viewport, {
+                    lastSavedImage: { imageUrl: 'data:image/png;base64,datadatadata' }
+                }, 'imageimageimage');
                 scriptVisual.update(visualUpdateOptions);
 
                 expect(warningSpy).not.toHaveBeenCalled();

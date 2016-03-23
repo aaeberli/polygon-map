@@ -108,7 +108,6 @@ module powerbi.data {
 
     export interface DataShapeBindingAxisGrouping {
         Projections: number[];
-        GroupBy?: number[];
         SuppressedProjections?: number[];
         Subtotal?: SubtotalType;
         ShowItemsWithNoData?: number[];

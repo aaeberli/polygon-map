@@ -25,6 +25,7 @@
  */
 
 module powerbi.visuals.samples {
+    import ValueFormatter = powerbi.visuals.valueFormatter;
     import IStringResourceProvider = jsCommon.IStringResourceProvider;
     import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
     import PixelConverter = jsCommon.PixelConverter;
@@ -59,6 +60,8 @@ module powerbi.visuals.samples {
         labelOutsideFillColor: string;
         categoriesFillColor: string;
         labelSettings: VisualDataLabelsSettings;
+        formatter?: IValueFormatter;
+        tooltipFormatter?: IValueFormatter;
         showLegend?: boolean;
         showCategories?: boolean;
         legendFontSize?: number;
@@ -604,7 +607,7 @@ module powerbi.visuals.samples {
 
         private columnPadding: number = 5;
         private leftLabelMargin: number = 4;
-        private durationAnimations: number;
+        private durationAnimations: number = 200;
         private InnerTextHeightDelta: number = 2;
         private textOptions: TornadoChartTextOptions = {};
 
@@ -734,7 +737,7 @@ module powerbi.visuals.samples {
             if (this.animator)
                 this.durationAnimations = AnimatorCommon.GetAnimationDuration(this.animator, visualUpdateOptions.suppressAnimations);
             else
-                this.durationAnimations = visualUpdateOptions.suppressAnimations ? 0 : 250;
+                this.durationAnimations = visualUpdateOptions.suppressAnimations ? 0 : 200;
 
             this.tornadoChartDataView = this.converter(visualUpdateOptions.dataViews[0]);
 
@@ -799,7 +802,9 @@ module powerbi.visuals.samples {
             let categoryValuesLength: number = categoryValues.length;
             let objects: DataViewObjects = this.getObjectsFromDataView(dataView);
 
-            let settings: TornadoChartSettings = this.parseSettings(objects);
+            let minValue: number = Math.min(d3.min(values[0].values), 0);
+            let maxValue: number = d3.max(values[0].values);
+            let settings: TornadoChartSettings = this.parseSettings(dataView, objects, maxValue);
             let formatStringProp: DataViewObjectPropertyIdentifier = TornadoChart.Properties.general.formatString;
             let categorySourceFormatString: string = valueFormatter.getFormatString(category.source, formatStringProp);
             this.hasDynamicSeries = !!values.source;
@@ -834,8 +839,6 @@ module powerbi.visuals.samples {
             let maxColumnWidth = this.widthRightSection = this.viewport.width - this.margin.right - this.widthLeftSection - scrollBarWidth;
             this.updateElements();
 
-            let minValue: number = Math.min(d3.min(values[0].values), 0);
-            let maxValue: number = d3.max(values[0].values);
             if (values.length === TornadoChart.MaxSeries) {
                 minValue = d3.min([minValue, d3.min(values[1].values)]);
                 maxValue = d3.max([maxValue, d3.max(values[1].values)]);
@@ -849,7 +852,7 @@ module powerbi.visuals.samples {
                 let measureName = currentSeries.source.queryName;
 
                 for (let i = 0; i < categoryValuesLength; i++) {
-                    let value = currentSeries.values[i] == null || isNaN(currentSeries.values[i]) ? 0 : currentSeries.values[i];
+                    let value = currentSeries.values[i];
                     let identity = SelectionIdBuilder.builder()
                         .withCategory(category, i)
                         .withSeries(values, currentSeries)
@@ -868,14 +871,12 @@ module powerbi.visuals.samples {
                     let shift: number = maxColumnWidth - widthOfColumn;
 
                     let dx: number = shift * Number(shiftToMiddle) + maxColumnWidth * Number(shiftToRight);
-                    let formatString = dataView.categorical.values[seriesIndex].source.format;
 
                     let label: LabelData = this.getLabelData(
                         value,
                         dx,
                         widthOfColumn,
                         shiftToMiddle,
-                        formatString,
                         settings);
 
                     dataPoints.push({
@@ -905,7 +906,6 @@ module powerbi.visuals.samples {
                             dx,
                             widthOfColumn,
                             shiftToMiddle,
-                            formatString,
                             settings);
 
                         tooltipInfo = TooltipBuilder.createTooltipInfo(formatStringProp, categorical, formattedCategoryValue, value, null, null, seriesIndex, i, highlightedValue);
@@ -938,18 +938,31 @@ module powerbi.visuals.samples {
             };
         }
 
-        private parseSettings(objects: DataViewObjects): TornadoChartSettings {
+        private parseSettings(dataView: DataView, objects: DataViewObjects, value: number): TornadoChartSettings {
+            let defaultTornadoChartSettings: TornadoChartSettings = this.DefaultTornadoChartSettings;
             let precision: number = this.getPrecision(objects);
 
             let displayUnits: number = DataViewObjects.getValue<number>(
                 objects,
                 TornadoChart.Properties.labels.labelDisplayUnits,
-                this.DefaultTornadoChartSettings.labelSettings.displayUnits);
+                defaultTornadoChartSettings.labelSettings.displayUnits);
 
-            let labelSettings = this.DefaultTornadoChartSettings.labelSettings;
+            let valueFormatter: IValueFormatter = ValueFormatter.create({
+                format: ValueFormatter.getFormatString(dataView.categorical.categories[0].source, TornadoChart.Properties.general.formatString),
+                precision: precision,
+                value: (displayUnits === 0) && (value != null) ? value : displayUnits,
+            });
+
+            let tooltipFormatter: IValueFormatter = ValueFormatter.create({
+                format: ValueFormatter.getFormatString(dataView.categorical.categories[0].source, TornadoChart.Properties.general.formatString),
+                precision: precision,
+                value: 0
+            });
+
+            let labelSettings = defaultTornadoChartSettings.labelSettings;
 
             return {
-                labelOutsideFillColor: this.getColor(TornadoChart.Properties.labels.outsideFill, this.DefaultTornadoChartSettings.labelOutsideFillColor, objects),
+                labelOutsideFillColor: this.getColor(TornadoChart.Properties.labels.outsideFill, defaultTornadoChartSettings.labelOutsideFillColor, objects),
                 labelSettings: {
                     show: DataViewObjects.getValue<boolean>(objects, TornadoChart.Properties.labels.show, labelSettings.show),
                     precision: precision,
@@ -957,11 +970,13 @@ module powerbi.visuals.samples {
                     displayUnits: displayUnits,
                     labelColor: this.getColor(TornadoChart.Properties.labels.insideFill, labelSettings.labelColor, objects),
                 },
-                showCategories: DataViewObjects.getValue<boolean>(objects, TornadoChart.Properties.categories.show, this.DefaultTornadoChartSettings.showCategories),
-                showLegend: DataViewObjects.getValue<boolean>(objects, TornadoChart.Properties.legend.show, this.DefaultTornadoChartSettings.showLegend),
-                legendFontSize: DataViewObjects.getValue<number>(objects, TornadoChart.Properties.legend.fontSize, this.DefaultTornadoChartSettings.legendFontSize),
-                legendColor: this.getColor(TornadoChart.Properties.legend.labelColor, this.DefaultTornadoChartSettings.legendColor, objects),
-                categoriesFillColor: this.getColor(TornadoChart.Properties.categories.fill, this.DefaultTornadoChartSettings.categoriesFillColor, objects)
+                formatter: valueFormatter,
+                showCategories: DataViewObjects.getValue<boolean>(objects, TornadoChart.Properties.categories.show, defaultTornadoChartSettings.showCategories),
+                showLegend: DataViewObjects.getValue<boolean>(objects, TornadoChart.Properties.legend.show, defaultTornadoChartSettings.showLegend),
+                legendFontSize: DataViewObjects.getValue<number>(objects, TornadoChart.Properties.legend.fontSize, defaultTornadoChartSettings.legendFontSize),
+                legendColor: this.getColor(TornadoChart.Properties.legend.labelColor, defaultTornadoChartSettings.legendColor, objects),
+                categoriesFillColor: this.getColor(TornadoChart.Properties.categories.fill, defaultTornadoChartSettings.categoriesFillColor, objects),
+                tooltipFormatter: tooltipFormatter,
             };
         }
 
@@ -1232,7 +1247,6 @@ module powerbi.visuals.samples {
             dxColumn: number,
             columnWidth: number,
             isColumnPositionLeft: boolean,
-            formatStringProp: string,
             settings?: TornadoChartSettings): LabelData {
 
             let dx: number,
@@ -1248,7 +1262,7 @@ module powerbi.visuals.samples {
             let textProperties: TextProperties = {
                 fontFamily: dataLabelUtils.StandardFontFamily,
                 fontSize: PixelConverter.fromPoint(fontSize),
-                text: valueFormatter.format(value, formatStringProp)
+                text: tornadoChartSettings.formatter.format(value),
             };
             let valueAfterValueFormatter: string = TextMeasurementService.getTailoredTextOrDefault(textProperties, maxLabelWidth);
             let textDataAfterValueFormatter: TextData = this.getTextData(valueAfterValueFormatter, true, false, fontSize);

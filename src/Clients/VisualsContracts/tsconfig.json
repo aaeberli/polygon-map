@@ -28,7 +28,6 @@
         "data/semanticQuery.d.ts",
         "data/visualData.d.ts",
         "data/visualDataRole.d.ts",
-        "location/geolocation.d.ts",
         "types/defaultValue.d.ts",
         "types/enumType.d.ts",
         "types/fill.d.ts",
@@ -38,6 +37,7 @@
         "types/paragraphs.d.ts",
         "types/structuralType.d.ts",
         "types/valueType.d.ts",
+
         "visual/iVisualStyle.d.ts",
         "visual/iVisual.d.ts",
         "visual/VisualObjectInstance.d.ts",
