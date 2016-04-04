@@ -1037,6 +1037,47 @@ declare module powerbi.extensibility {
 
 ﻿
 
+declare module powerbi {   
+    
+    /**
+     * Interface that provides scripted access to geographical location information associated with the hosting device
+     * The Interface is similar to W3 Geolocation API Specification {@link https://dev.w3.org/geo/api/spec-source.html}
+     */
+    export interface IGeolocation {
+        /**
+         * Request repeated updates
+         * 
+         * @param successCallback invoked when current location successfully obtained
+         * @param errorCallback invoked when attempt to obtain the current location fails
+         * 
+         * @return a number value that uniquely identifies a watch operation
+         */
+        watchPosition(successCallback: IPositionCallback, errorCallback?: IPositionErrorCallback): number;
+        /**
+         * Cancel the updates
+         * 
+         * @param watchId  a number returned from {@link IGeolocation#watchPosition}
+         */
+        clearWatch(watchId: number): void;
+        /**
+         * One-shot position request.
+         * 
+         * @param successCallback invoked when current location successfully obtained
+         * @param errorCallback invoked when attempt to obtain the current location fails
+         */
+        getCurrentPosition(successCallback: IPositionCallback, errorCallback?: IPositionErrorCallback): void;
+    }
+
+    export interface IPositionCallback {
+        (position: Position): void;
+    }
+    
+    export interface IPositionErrorCallback {
+        (error: PositionError): void;
+    }
+}
+﻿
+
 declare module powerbi {
     export interface DefaultValueDefinition {
         value: data.ISQConstantExpr;
@@ -13254,7 +13295,27 @@ declare module powerbi.visuals {
     }
 }
 declare module powerbi.visuals {
-    class MapPolygonDataPointRenderer implements IMapDataPointRenderer {
+    interface PolygonMapData {
+        dataPoints: MapDataPoint[][];
+        geocodingCategory: string;
+        hasDynamicSeries: boolean;
+    }
+    interface PolygonMapRendererData {
+        bubbleData?: MapBubble[][];
+        sliceData?: MapSlice[][];
+        shapeData?: MapShape[];
+    }
+    interface IPolygonMapDataPointRenderer {
+        init(mapControl: Microsoft.Maps.Map, mapDiv: JQuery, addClearCatcher: boolean): void;
+        setData(data: PolygonMapData): void;
+        getDataPointCount(): number;
+        converter(viewPort: IViewport, dataView: DataView, labelSettings: PointDataLabelsSettings, interactivityService: IInteractivityService, tooltipsEnabled: boolean): PolygonMapRendererData;
+        updateInternal(data: PolygonMapRendererData, viewport: IViewport, dataChanged: boolean, interactivityService: IInteractivityService, redrawDataLabels: boolean): MapBehaviorOptions;
+        updateInternalDataLabels(viewport: IViewport, redrawDataLabels: boolean): void;
+        getDataPointPadding(): number;
+        clearDataPoints(): void;
+    }
+    class MapPolygonDataPointRenderer implements IPolygonMapDataPointRenderer {
         private mapControl;
         private mapData;
         private maxDataPointRadius;
@@ -13274,15 +13335,15 @@ declare module powerbi.visuals {
         private root;
         constructor(tooltipsEnabled: boolean);
         init(mapControl: Microsoft.Maps.Map, mapDiv: JQuery, addClearCatcher: boolean): void;
-        setData(data: MapData): void;
+        setData(data: PolygonMapData): void;
         clearDataPoints(): void;
         getDataPointCount(): number;
         getDataPointPadding(): number;
         private clearMaxDataPointRadius();
         private setMaxDataPointRadius(dataPointRadius);
         getDefaultMap(geocodingCategory: string, dataPointCount: number): void;
-        converter(viewport: IViewport, dataView: DataView, labelSettings: PointDataLabelsSettings, interactivityService: IInteractivityService, tooltipsEnabled?: boolean): MapRendererData;
-        updateInternal(data: MapRendererData, viewport: IViewport, dataChanged: boolean, interactivityService: IInteractivityService, redrawDataLabels: boolean): MapBehaviorOptions;
+        converter(viewport: IViewport, dataView: DataView, labelSettings: PointDataLabelsSettings, interactivityService: IInteractivityService, tooltipsEnabled?: boolean): PolygonMapRendererData;
+        updateInternal(data: PolygonMapRendererData, viewport: IViewport, dataChanged: boolean, interactivityService: IInteractivityService, redrawDataLabels: boolean): MapBehaviorOptions;
         updateInternalDataLabels(viewport: IViewport, redrawDataLabels: boolean): void;
         private createLabelDataPoints();
     }
@@ -13356,10 +13417,10 @@ declare module powerbi.visuals {
         static shouldEnumerateDataPoints(dataView: DataView, usesSizeForGradient: boolean): boolean;
         static shouldEnumerateCategoryLabels(enableGeoShaping: boolean, filledMapDataLabelsEnabled: boolean): boolean;
         enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration;
-        static enumerateDataPoints(enumeration: ObjectEnumerationBuilder, dataPoints: LegendDataPoint[], colors: IDataColorPalette, hasDynamicSeries: boolean, defaultDataPointColor: string, showAllDataPoints: boolean, bubbleData: MapBubble[]): void;
+        static enumerateDataPoints(enumeration: ObjectEnumerationBuilder, dataPoints: LegendDataPoint[], colors: IDataColorPalette, hasDynamicSeries: boolean, defaultDataPointColor: string, showAllDataPoints: boolean, bubbleData: MapBubble[][]): void;
         static enumerateLegend(enumeration: ObjectEnumerationBuilder, dataView: DataView, legend: ILegend, legendTitle: string): void;
         onDataChanged(options: VisualDataChangedOptions): void;
-        static converter(dataView: DataView, colorHelper: ColorHelper, geoTaggingAnalyzerService: IGeoTaggingAnalyzerService): MapData;
+        static converter(dataView: DataView, colorHelper: ColorHelper, geoTaggingAnalyzerService: IGeoTaggingAnalyzerService): PolygonMapData;
         static createLegendData(dataView: DataView, colorHelper: ColorHelper): LegendData;
         private swapLogoContainerChildElement();
         onResizing(viewport: IViewport): void;

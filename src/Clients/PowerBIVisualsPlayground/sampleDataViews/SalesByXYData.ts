@@ -34,11 +34,7 @@ module powerbi.visuals.sampleDataViews {
 
         public visuals: string[] = ['polygonMap'];
 
-        private sampleData = [
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  // values
-            [51.581484,51.577973,51.344887,51.374234,51.544385,51.622276,51.434173,51.649196,51.614012,51.375545],  // latitude
-            [-0.436863, -0.451732, -0.130876, -0.371272, -0.136892, -0.095972, -0.186176, 0.045373, -0.034305, 0.097469]  // longitude
-        ];
+        private sampleData = [];
 
         private latitudeMin: number = 51.332073;
         private latitudeMax: number = 51.654266;
@@ -48,57 +44,84 @@ module powerbi.visuals.sampleDataViews {
 
 
         public getDataViews(): DataView[] {
+            var JSON;
 
-            var latitudeFieldExpr = powerbi.data.SQExprBuilder.fieldExpr({ column: { schema: 's', entity: "table1", name: "latitude" } });
-            var longitudeFieldExpr = powerbi.data.SQExprBuilder.fieldExpr({ column: { schema: 's', entity: "table1", name: "longitude" } });
+            let localSampleData = [];
 
-            var latitudeIdentities = this.sampleData[2].map(function (value) {
-                var expr = powerbi.data.SQExprBuilder.equal(latitudeFieldExpr, powerbi.data.SQExprBuilder.double(value));
+
+            $.ajax({
+                url: 'http://sandrino.96.lt/temp/GEOJSON_Format.json',
+                success: function (response) {
+                    localSampleData.push(response);
+                },
+                async: false,
+                timeout: 30000
+            });
+            this.sampleData = localSampleData;
+
+            var polygonFieldExpr = powerbi.data.SQExprBuilder.fieldExpr({ column: { schema: 's', entity: "table1", name: "polygon" } });
+            //var longitudeFieldExpr = powerbi.data.SQExprBuilder.fieldExpr({ column: { schema: 's', entity: "table1", name: "longitude" } });
+
+            //let firstfeatures = [];
+            //for (let i = 0; i < 1977; i++) {
+            //    firstfeatures.push(this.sampleData[0].features[i]);
+            //}
+            //this.sampleData[0].features = firstfeatures;
+
+            var polygonIdentities = this.sampleData.map(function (value) {
+                var expr = powerbi.data.SQExprBuilder.equal(polygonFieldExpr, powerbi.data.SQExprBuilder.text(value.type));
                 return powerbi.data.createDataViewScopeIdentity(expr);
             });
-            var longitudeIdentities = this.sampleData[1].map(function (value) {
-                var expr = powerbi.data.SQExprBuilder.equal(longitudeFieldExpr, powerbi.data.SQExprBuilder.double(value));
-                return powerbi.data.createDataViewScopeIdentity(expr);
-            });
+
+            //var longitudeIdentities = this.sampleData[1].map(function (value) {
+            //    var expr = powerbi.data.SQExprBuilder.equal(longitudeFieldExpr, powerbi.data.SQExprBuilder.double(value));
+            //    return powerbi.data.createDataViewScopeIdentity(expr);
+            //});
         
             // Metadata, describes the data columns, and provides the visual with hints
             // so it can decide how to best represent the data
             var dataViewMetadata: powerbi.DataViewMetadata = {
                 columns: [
-                    {
-                        displayName: 'Latitude',
-                        queryName: 'Latitude',
-                        type: powerbi.ValueType.fromDescriptor({ numeric: true }),
-                        roles: { Y: true }
-                    },
-                    {
-                        displayName: 'Longitude',
-                        queryName: 'Longitude',
-                        type: powerbi.ValueType.fromDescriptor({ numeric: true }),
-                        roles: { X: true }
-                    },
-                    {
-                        displayName: 'Sales Amount',
-                        isMeasure: true,
-                        format: "$0,000.00",
-                        queryName: 'sales1',
-                        type: powerbi.ValueType.fromDescriptor({ numeric: true }),
-                        objects: { dataPoint: { fill: { solid: { color: '#FF0000' } } } },
-                        roles: { Size: true },
+                    //{
+                    //    displayName: 'Latitude',
+                    //    queryName: 'Latitude',
+                    //    type: powerbi.ValueType.fromDescriptor({ numeric: true }),
+                    //    roles: { Y: true }
+                    //},
+                    //{
+                    //    displayName: 'Longitude',
+                    //    queryName: 'Longitude',
+                    //    type: powerbi.ValueType.fromDescriptor({ numeric: true }),
+                    //    roles: { X: true }
+                    //},
+                    //{
+                    //    displayName: 'Sales Amount',
+                    //    isMeasure: true,
+                    //    format: "$0,000.00",
+                    //    queryName: 'sales1',
+                    //    type: powerbi.ValueType.fromDescriptor({ numeric: true }),
+                    //    objects: { dataPoint: { fill: { solid: { color: '#FF0000' } } } },
+                    //    roles: { Size: true },
 
+                    //}
+                    {
+                        displayName: 'polygon',
+                        queryName: 'polygon',
+                        type: powerbi.ValueType.fromDescriptor({ text: true }),
+                        roles: { polygon: true }
                     }
                 ]
             };
 
             var columns = [
                 {
-                    source: dataViewMetadata.columns[2],
-                    values: this.sampleData[0],
-                    identity: { key: "sales1", expr: "" },
+                    source: dataViewMetadata.columns[0],
+                    values: this.sampleData,
+                    identity: { key: "polygon", expr: "" },
                 }
             ];
 
-            var dataValues: DataViewValueColumns = DataViewTransform.createValueColumns(columns, null, dataViewMetadata.columns[2]);
+            var dataValues: DataViewValueColumns = DataViewTransform.createValueColumns(columns, null, dataViewMetadata.columns[0]);
 
             return [{
                 metadata: dataViewMetadata,
@@ -106,14 +129,9 @@ module powerbi.visuals.sampleDataViews {
                     categories: [
                         {
                             source: dataViewMetadata.columns[0],
-                            values: this.sampleData[1],
-                            identity: latitudeIdentities,
-                        },
-                        {
-                            source: dataViewMetadata.columns[1],
-                            values: this.sampleData[2],
-                            identity: longitudeIdentities,
-                        },
+                            values: this.sampleData,
+                            identity: polygonIdentities,
+                        }
                     ],
                     values: dataValues
                 }
@@ -123,12 +141,12 @@ module powerbi.visuals.sampleDataViews {
 
         public randomize(): void {
 
-            this.sampleData[1] = this.sampleData[1].map((item) => {
-                return this.getRandomValue(this.latitudeMin, this.latitudeMax);
-            });
-            this.sampleData[2] = this.sampleData[2].map((item) => {
-                return this.getRandomValue(this.longitudeMin, this.longitudeMax);
-            });
+            //this.sampleData[1] = this.sampleData[1].map((item) => {
+            //    return this.getRandomValue(this.latitudeMin, this.latitudeMax);
+            //});
+            //this.sampleData[2] = this.sampleData[2].map((item) => {
+            //    return this.getRandomValue(this.longitudeMin, this.longitudeMax);
+            //});
 
         }
 
