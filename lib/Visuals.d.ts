@@ -7494,24 +7494,30 @@ declare module powerbi.visuals {
 }
 declare module powerbi.visuals {
     interface PolygonMapData {
-        dataPoints: MapDataPoint[][];
-        geocodingCategory: string;
-        hasDynamicSeries: boolean;
+        dataPoints: PolygonMapDataPoint[][];
+    }
+    interface MapPolygonPoint extends TooltipEnabledDataPoint, SelectableDataPoint {
+        x: number;
+        y: number;
+        fill?: string;
+        stroke?: string;
+        strokeWidth?: number;
     }
     interface PolygonMapRendererData {
-        bubbleData?: MapBubble[][];
-        sliceData?: MapSlice[][];
-        shapeData?: MapShape[];
+        polygonData: MapPolygonPoint[][];
     }
     interface IPolygonMapDataPointRenderer {
         init(mapControl: Microsoft.Maps.Map, mapDiv: JQuery, addClearCatcher: boolean): void;
         setData(data: PolygonMapData): void;
         getDataPointCount(): number;
-        converter(viewPort: IViewport, dataView: DataView, labelSettings: PointDataLabelsSettings, interactivityService: IInteractivityService, tooltipsEnabled: boolean): PolygonMapRendererData;
-        updateInternal(data: PolygonMapRendererData, viewport: IViewport, dataChanged: boolean, interactivityService: IInteractivityService, redrawDataLabels: boolean): MapBehaviorOptions;
-        updateInternalDataLabels(viewport: IViewport, redrawDataLabels: boolean): void;
+        converter(viewPort: IViewport, dataView: DataView): PolygonMapRendererData;
+        clear(): void;
+        updateInternal(data: PolygonMapRendererData, viewport: IViewport, dataChanged: boolean, interactivityService: IInteractivityService, redrawDataLabels: boolean): void;
         getDataPointPadding(): number;
         clearDataPoints(): void;
+    }
+    interface PolygonMapDataPoint {
+        location?: IGeocodeCoordinate;
     }
     class MapPolygonDataPointRenderer implements IPolygonMapDataPointRenderer {
         private mapControl;
@@ -7520,12 +7526,7 @@ declare module powerbi.visuals {
         private svg;
         private clearSvg;
         private clearCatcher;
-        private bubbleGraphicsContext;
-        private sliceGraphicsContext;
-        private labelGraphicsContext;
-        private labelBackgroundGraphicsContext;
-        private sliceLayout;
-        private arc;
+        private polygonsGraphicsContext;
         private dataLabelsSettings;
         private tooltipsEnabled;
         private static validLabelPositions;
@@ -7540,10 +7541,9 @@ declare module powerbi.visuals {
         private clearMaxDataPointRadius();
         private setMaxDataPointRadius(dataPointRadius);
         getDefaultMap(geocodingCategory: string, dataPointCount: number): void;
-        converter(viewport: IViewport, dataView: DataView, labelSettings: PointDataLabelsSettings, interactivityService: IInteractivityService, tooltipsEnabled?: boolean): PolygonMapRendererData;
-        updateInternal(data: PolygonMapRendererData, viewport: IViewport, dataChanged: boolean, interactivityService: IInteractivityService, redrawDataLabels: boolean): MapBehaviorOptions;
-        updateInternalDataLabels(viewport: IViewport, redrawDataLabels: boolean): void;
-        private createLabelDataPoints();
+        converter(viewport: IViewport, dataView: DataView): PolygonMapRendererData;
+        clear(): void;
+        updateInternal(data: PolygonMapRendererData, viewport: IViewport, dataChanged: boolean, interactivityService: IInteractivityService, redrawDataLabels: boolean): void;
     }
     class PolygonMap implements IVisual {
         currentViewport: IViewport;
@@ -7572,9 +7572,7 @@ declare module powerbi.visuals {
         private dataPointsToEnumerate;
         private hasDynamicSeries;
         private geoTaggingAnalyzerService;
-        private enableGeoShaping;
         private host;
-        private receivedExternalViewChange;
         private executingInternalViewChange;
         private geocoder;
         private mapControlFactory;
@@ -7590,36 +7588,17 @@ declare module powerbi.visuals {
         init(options: VisualInitOptions): void;
         private addDataPoint(dataPoint);
         private scheduleRedraw();
-        private enqueueGeoCode(dataPoint);
-        private enqueueGeoCodeAndGeoShape(dataPoint, params);
-        private enqueueGeoShape(dataPoint, params);
         private getOptimumLevelOfDetail(width, height);
         private getViewCenter(levelOfDetail);
         private resetBounds();
         private updateBounds(latitude, longitude);
         static legendObject(dataView: DataView): DataViewObject;
-        static isLegendHidden(dataView: DataView): boolean;
-        static legendPosition(dataView: DataView): LegendPosition;
-        static getLegendFontSize(dataView: DataView): number;
-        static isShowLegendTitle(dataView: DataView): boolean;
-        private legendTitle();
-        private renderLegend(legendData);
-        /** Note: public for UnitTest */
-        static calculateGroupSizes(categorical: DataViewCategorical, grouped: DataViewValueColumnGroup[], groupSizeTotals: number[], sizeMeasureIndex: number, currentValueScale: SimpleRange): SimpleRange;
-        /** Note: public for UnitTest */
-        static calculateRadius(range: SimpleRange, value?: number): number;
-        /** Note: public for UnitTest */
-        static getGeocodingCategory(categorical: DataViewCategorical, geoTaggingAnalyzerService: IGeoTaggingAnalyzerService): string;
-        /** Note: public for UnitTest */
-        static hasSizeField(values: DataViewValueColumns, defaultIndexIfNoRole?: number): boolean;
         static shouldEnumerateDataPoints(dataView: DataView, usesSizeForGradient: boolean): boolean;
-        static shouldEnumerateCategoryLabels(enableGeoShaping: boolean, filledMapDataLabelsEnabled: boolean): boolean;
+        static shouldEnumerateCategoryLabels(filledMapDataLabelsEnabled: boolean): boolean;
         enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration;
-        static enumerateDataPoints(enumeration: ObjectEnumerationBuilder, dataPoints: LegendDataPoint[], colors: IDataColorPalette, hasDynamicSeries: boolean, defaultDataPointColor: string, showAllDataPoints: boolean, bubbleData: MapBubble[][]): void;
-        static enumerateLegend(enumeration: ObjectEnumerationBuilder, dataView: DataView, legend: ILegend, legendTitle: string): void;
+        static enumerateDataPoints(enumeration: ObjectEnumerationBuilder, dataPoints: LegendDataPoint[], colors: IDataColorPalette, hasDynamicSeries: boolean, defaultDataPointColor: string, showAllDataPoints: boolean, bubbleData: MapPolygonPoint[][]): void;
         onDataChanged(options: VisualDataChangedOptions): void;
-        static converter(dataView: DataView, colorHelper: ColorHelper, geoTaggingAnalyzerService: IGeoTaggingAnalyzerService): PolygonMapData;
-        static createLegendData(dataView: DataView, colorHelper: ColorHelper): LegendData;
+        static converter(dataView: DataView, colorHelper: ColorHelper): PolygonMapData;
         private swapLogoContainerChildElement();
         onResizing(viewport: IViewport): void;
         private initialize(container);
