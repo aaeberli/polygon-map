@@ -151,6 +151,7 @@
     "cartesian/lineChart.ts",
     "visuals/map.ts",
     "visuals/polygonMap.ts",
+    "visuals/leafletMap.ts",
     "visuals/multiRowCard.ts",
     "visuals/textbox.ts",
     "visuals/sampleVisual.ts",

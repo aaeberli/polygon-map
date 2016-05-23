@@ -4,7 +4,7 @@
     import Polygon = shapes.Polygon;
     import DataRoleHelper = powerbi.data.DataRoleHelper;
 
-
+    var write = true;
     /** 
      * Used because data points used in D3 pie layouts are placed within a container with pie information.
      */
@@ -144,7 +144,6 @@
 
         public converter(viewport: IViewport, dataView: DataView): PolygonMapRendererData {
             let start = Date.now();
-
             let mapControl = this.mapControl;
             let widthOverTwo = viewport.width / 2;
             let heightOverTwo = viewport.height / 2;
@@ -152,10 +151,10 @@
             this.clearMaxDataPointRadius();
 
             let polygonData: MapPolygonPoint[][] = [];
-
             let polygonDataPoints = this.mapData ? this.mapData.dataPoints : [];
             for (let dataPoints of polygonDataPoints) {
                 let singlePolygonData: MapPolygonPoint[] = [];
+                var polystring = "POLYGON((";
                 for (let index = 0, count = dataPoints.length; index < count; index++) {
                     let location = dataPoints[index].location;
 
@@ -169,13 +168,18 @@
                         identity: null,
                         selected: false,
                     });
+                    polystring += location.longitude + " " + location.latitude + ",";
                 }
+                polystring += "))";
+                polystring = polystring.replace(",))", "))\r\n");
                 polygonData.push(singlePolygonData);
+                if (write)
+                    document.write(polystring);
             }
 
             let end = Date.now() - start;
             console.log("End MapPolygonDataPointRenderer converter: " + end + "millisecs");
-
+            write = false;
             return { polygonData: polygonData };
         }
 
@@ -544,9 +548,11 @@
 
             let features = dataView.categorical.categories[0].values[0].features;
 
-            for (let feature of features) {
+            for (let j = 0, featuresLength = features.length; j < featuresLength; j++) {
+                let feature = features[j];
                 let coordinates = feature.geometry.coordinates;
-                for (let coordsContainer of coordinates) {
+                for (let k = 0, coordinatesLength = coordinates.length; k < coordinatesLength; k++) {
+                    let coordsContainer = coordinates[k];
                     let coords = coordsContainer[0];
 
                     let singleDataPoints: PolygonMapDataPoint[] = [];

@@ -215,6 +215,13 @@ module powerbi.visuals.plugins {
         create: () => new PolygonMap({})
     };
 
+    export let leafletMap: IVisualPlugin = {
+        name: 'leafletMap',
+        watermarkKey: 'leafletMap',
+        capabilities: LeafletMap.capabilities,
+        create: () => new LeafletMap()
+    };
+
     export let filledMap: IVisualPlugin = {
         name: 'filledMap',
         watermarkKey: 'filledMap',
